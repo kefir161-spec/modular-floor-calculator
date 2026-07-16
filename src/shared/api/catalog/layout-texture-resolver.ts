@@ -1,7 +1,12 @@
 import { resolvePublicUrl } from '@/shared/lib/urls'
-import { pickLayoutTexturePath, toAbsoluteLayoutTextureUrl } from './layout-texture-picker'
+import {
+  detectSharedSecondBasenames,
+  pickLayoutTexturePathForVariant,
+  toAbsoluteLayoutTextureUrl,
+} from './layout-texture-picker'
 import {
   extractCatalogElementJs,
+  extractOfferIds,
   extractOfferPhotoPaths,
   getFamilyPageUrl,
 } from './layout-texture-html'
@@ -28,8 +33,12 @@ export function resolveLayoutTextureUrlFromHtml(
   const catalogJs = extractCatalogElementJs(html)
   if (!catalogJs) return undefined
 
+  const offerIds = extractOfferIds(catalogJs)
+  const sharedSecondBasenames = detectSharedSecondBasenames(
+    offerIds.map((id) => extractOfferPhotoPaths(catalogJs, id)),
+  )
   const photoPaths = extractOfferPhotoPaths(catalogJs, variantId)
-  const picked = pickLayoutTexturePath(photoPaths)
+  const picked = pickLayoutTexturePathForVariant(photoPaths, sharedSecondBasenames)
   if (!picked) return undefined
 
   return toAbsoluteLayoutTextureUrl(picked)

@@ -12,7 +12,7 @@ import { calculate } from '@/entities/calculation/calculate'
 
 const defaultRoom: RoomState = {
   shapeType: 'rectangle',
-  contour: createRectanglePolygon(3000, 4000),
+  contour: createRectanglePolygon(1000, 1000),
   gapMm: APP_CONFIG.defaultGapMm,
   unit: 'm',
 }

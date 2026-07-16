@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  basenameFromPath,
+  detectSharedSecondBasenames,
   normalizePhotoPaths,
   pickLayoutTexturePath,
+  pickLayoutTexturePathForVariant,
 } from './layout-texture-picker'
 
 describe('layout-texture-picker', () => {
@@ -29,5 +32,32 @@ describe('layout-texture-picker', () => {
     ])
 
     expect(picked).toBe('/upload/resize_cache/iblock/b/511_500_x/photo2.jpg')
+  })
+
+  it('для City берёт первое уникальное фото, если второе общее для всех цветов', () => {
+    const shared = detectSharedSecondBasenames([
+      [
+        '/upload/resize_cache/iblock/a/1200/orange.jpg',
+        '/upload/resize_cache/iblock/b/1200/shared-front.jpg',
+      ],
+      [
+        '/upload/resize_cache/iblock/a/1200/blue.jpg',
+        '/upload/resize_cache/iblock/b/1200/shared-front.jpg',
+      ],
+    ])
+
+    expect(shared.has(basenameFromPath('/upload/resize_cache/iblock/b/1200/shared-front.jpg'))).toBe(
+      true,
+    )
+
+    const orange = pickLayoutTexturePathForVariant(
+      [
+        '/upload/resize_cache/iblock/a/1200/orange.jpg',
+        '/upload/resize_cache/iblock/b/1200/shared-front.jpg',
+      ],
+      shared,
+    )
+
+    expect(orange).toBe('/upload/resize_cache/iblock/a/1200/orange.jpg')
   })
 })

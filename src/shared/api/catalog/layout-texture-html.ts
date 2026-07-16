@@ -16,6 +16,12 @@ export function extractCatalogElementJs(html: string): string | undefined {
   return fallback?.[0]
 }
 
+export function extractOfferIds(catalogElementJs: string): string[] {
+  return [
+    ...catalogElementJs.matchAll(/\{'ID':'(\d+)'[\s\S]*?'MORE_PHOTOS':\[/g),
+  ].map((m) => m[1])
+}
+
 export function extractOfferPhotoPaths(catalogElementJs: string, variantId: string): string[] {
   const offerChunk = catalogElementJs.match(
     new RegExp(`\\{'ID':'${variantId}'[\\s\\S]*?'MORE_PHOTOS':\\[([\\s\\S]*?)\\],'MORE_PHOTOS_COUNT'`),

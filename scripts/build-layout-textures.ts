@@ -5,11 +5,13 @@ import { fileURLToPath } from 'url'
 import { XMLParser } from 'fast-xml-parser'
 import {
   extractCatalogElementJs,
+  extractOfferIds,
   extractOfferPhotoPaths,
   getFamilyPageUrl,
 } from '../src/shared/api/catalog/layout-texture-html'
 import {
-  pickLayoutTexturePath,
+  detectSharedSecondBasenames,
+  pickLayoutTexturePathForVariant,
   toAbsoluteLayoutTextureUrl,
 } from '../src/shared/api/catalog/layout-texture-picker'
 
@@ -73,9 +75,14 @@ for (const family of families.values()) {
       continue
     }
 
+    const offerIds = extractOfferIds(catalogJs).filter((id) => family.variantIds.includes(id))
+    const sharedSecondBasenames = detectSharedSecondBasenames(
+      offerIds.map((id) => extractOfferPhotoPaths(catalogJs, id)),
+    )
+
     for (const variantId of family.variantIds) {
       const paths = extractOfferPhotoPaths(catalogJs, variantId)
-      const picked = pickLayoutTexturePath(paths)
+      const picked = pickLayoutTexturePathForVariant(paths, sharedSecondBasenames)
       if (!picked) {
         missing.push({ family: family.slug, variantId, reason: 'no-photos' })
         continue
@@ -83,7 +90,7 @@ for (const family of families.values()) {
       mapping[variantId] = toAbsoluteLayoutTextureUrl(picked)
       processed++
     }
-    console.log('ok', family.slug, family.variantIds.length)
+    console.log('ok', family.slug, family.variantIds.length, sharedSecondBasenames.size ? 'shared-second' : '')
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     for (const variantId of family.variantIds) {

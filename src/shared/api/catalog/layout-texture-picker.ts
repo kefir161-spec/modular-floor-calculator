@@ -33,15 +33,58 @@ export function normalizePhotoPaths(paths: string[]): string[] {
   return ordered
 }
 
+export function basenameFromPath(path: string): string {
+  return path.split('/').pop()?.replace(/\.\w+$/, '') ?? path
+}
+
 /**
  * На странице товара plastfactor.com у каждого SKU в MORE_PHOTOS:
  * [0] — перспективное фото (то же, что в XML <picture>),
  * [1] — фронтальный вид сверху для раскладки.
+ *
+ * У City / Broneplast второе уникальное фото часто общее для всех цветов серии —
+ * тогда берём [0] (цветоспецифичное фото).
  */
 export function pickLayoutTexturePath(photoPaths: string[]): string | undefined {
+  return pickLayoutTexturePathForVariant(photoPaths, new Set())
+}
+
+export function detectSharedSecondBasenames(variantsPhotos: string[][]): Set<string> {
+  const secondToFirst = new Map<string, Set<string>>()
+
+  for (const paths of variantsPhotos) {
+    const unique = normalizePhotoPaths(paths)
+    if (unique.length < 2) continue
+    const firstBase = basenameFromPath(unique[0])
+    const secondBase = basenameFromPath(unique[1])
+    const firstSet = secondToFirst.get(secondBase) ?? new Set<string>()
+    firstSet.add(firstBase)
+    secondToFirst.set(secondBase, firstSet)
+  }
+
+  const shared = new Set<string>()
+  for (const [secondBase, firstBases] of secondToFirst) {
+    if (firstBases.size >= 2) {
+      shared.add(secondBase)
+    }
+  }
+  return shared
+}
+
+export function pickLayoutTexturePathForVariant(
+  photoPaths: string[],
+  sharedSecondBasenames: ReadonlySet<string>,
+): string | undefined {
   const unique = normalizePhotoPaths(photoPaths)
-  if (unique.length >= 2) return unique[1]
-  return unique[0]
+  if (unique.length === 0) return undefined
+  if (unique.length === 1) return unique[0]
+
+  const secondBase = basenameFromPath(unique[1])
+  if (sharedSecondBasenames.has(secondBase)) {
+    return unique[0]
+  }
+
+  return unique[1]
 }
 
 export function toAbsoluteLayoutTextureUrl(path: string): string {
