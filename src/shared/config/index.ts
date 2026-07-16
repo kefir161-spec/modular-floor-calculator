@@ -1,6 +1,19 @@
 import type { CatalogEligibilityConfig } from '@/shared/types'
 import { resolvePublicUrl } from '@/shared/lib/urls'
 
+const LOCAL_CATALOG_PATH = '/data/plastfactor_catalog.xml'
+const REMOTE_CATALOG_URL = 'https://plastfactor.com/bitrix/catalog_export/export_Q7r.xml'
+
+function resolveCatalogUrl(): string {
+  const mode = (import.meta.env.VITE_CATALOG_MODE ?? 'local') as 'local' | 'remote'
+
+  if (import.meta.env.VITE_CATALOG_URL) {
+    return resolvePublicUrl(import.meta.env.VITE_CATALOG_URL)
+  }
+
+  return resolvePublicUrl(mode === 'remote' ? REMOTE_CATALOG_URL : LOCAL_CATALOG_PATH)
+}
+
 /**
  * Allow-list серий модульных напольных покрытий для калькулятора.
  * Документировано в docs/catalog-adapter.md
@@ -65,10 +78,7 @@ export const APP_CONFIG = {
   schemaVersion: 1,
   productUrlParam: import.meta.env.VITE_PRODUCT_URL_PARAM ?? 'offerId',
   catalogMode: (import.meta.env.VITE_CATALOG_MODE ?? 'local') as 'local' | 'remote',
-  catalogUrl: resolvePublicUrl(
-    import.meta.env.VITE_CATALOG_URL ??
-      'https://plastfactor.com/bitrix/catalog_export/export_Q7r.xml',
-  ),
+  catalogUrl: resolveCatalogUrl(),
   maxModulesWarning: 5000,
   localStorageKey: 'plastfactor_projects',
   autosaveKey: 'plastfactor_autosave',

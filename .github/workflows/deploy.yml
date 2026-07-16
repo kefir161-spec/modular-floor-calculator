@@ -30,6 +30,8 @@ jobs:
       - run: npm run build
         env:
           VITE_BASE_PATH: /modular-floor-calculator/
+          VITE_CATALOG_MODE: local
+          VITE_CATALOG_URL: /data/plastfactor_catalog.xml
 
       - uses: actions/upload-pages-artifact@v3
         with:
