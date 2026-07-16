@@ -3,6 +3,7 @@ import useImage from 'use-image'
 import { resolveLayoutTextureUrl } from '@/shared/api/catalog/layout-texture-resolver'
 import {
   extractLayoutPhotoCrop,
+  requiresCrossOriginImageLoad,
   resolveTileImageUrl,
   trimLayoutPhoto,
   type LayoutPhotoCrop,
@@ -77,14 +78,14 @@ export function useTileImage(variantUrl?: string, variantId?: string): TileImage
   }, [variantUrl, variantId])
 
   const proxiedUrl = layoutUrl ? resolveTileImageUrl(layoutUrl) : undefined
-  const useCrossOrigin = Boolean(proxiedUrl?.includes('tile-image-proxy'))
+  const useCrossOrigin = proxiedUrl ? requiresCrossOriginImageLoad(proxiedUrl) : false
 
   const [proxiedImage, proxiedStatus] = useImage(
     proxiedUrl || EMPTY_IMAGE,
-    useCrossOrigin && proxiedUrl ? 'anonymous' : undefined,
+    useCrossOrigin ? 'anonymous' : undefined,
   )
 
-  const tryDirect = proxiedStatus === 'failed' && layoutUrl
+  const tryDirect = proxiedStatus === 'failed' && layoutUrl && import.meta.env.DEV
   const [directImage, directStatus] = useImage(tryDirect ? layoutUrl : EMPTY_IMAGE)
 
   const photoImage = (

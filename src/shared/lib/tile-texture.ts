@@ -122,18 +122,48 @@ export function trimLayoutPhoto(source: HTMLImageElement): HTMLCanvasElement | n
   return canvas
 }
 
+export function requiresCrossOriginImageLoad(url: string): boolean {
+  if (!url || url.startsWith('data:')) return false
+
+  if (typeof window === 'undefined') {
+    return !url.startsWith('/')
+  }
+
+  try {
+    const parsed = new URL(url, window.location.origin)
+    return parsed.origin !== window.location.origin
+  } catch {
+    return true
+  }
+}
+
 export function resolveTileImageUrl(url: string): string {
   if (!url.includes('plastfactor.com')) return url
 
-  const useProxy = import.meta.env.DEV || import.meta.env.MODE === 'preview'
-  if (!useProxy) return url
+  if (import.meta.env.DEV || import.meta.env.MODE === 'preview') {
+    try {
+      const { pathname, search } = new URL(url)
+      return `/tile-image-proxy${pathname}${search}`
+    } catch {
+      return url
+    }
+  }
 
-  try {
-    const { pathname, search } = new URL(url)
-    return `/tile-image-proxy${pathname}${search}`
-  } catch {
+  const proxyMode = import.meta.env.VITE_TILE_IMAGE_PROXY ?? 'wsrv'
+  if (proxyMode === 'none' || proxyMode === 'off') {
     return url
   }
+
+  const encoded = encodeURIComponent(url)
+  if (proxyMode === 'wsrv') {
+    return `https://wsrv.nl/?url=${encoded}&w=1200&output=jpg`
+  }
+
+  if (proxyMode.includes('{url}')) {
+    return proxyMode.replace('{url}', encoded)
+  }
+
+  return `${proxyMode}${encoded}`
 }
 
 export function getTilePatternSize(source: TilePatternSource): { width: number; height: number } {
