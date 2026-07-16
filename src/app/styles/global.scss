@@ -1,0 +1,93 @@
+:root {
+  --pf-color-primary: #1d4f7a;
+  --pf-color-primary-hover: #163f62;
+  --pf-color-accent: #f28c45;
+  --pf-color-background: #f5f7fa;
+  --pf-color-surface: #ffffff;
+  --pf-color-text: #182230;
+  --pf-color-muted: #667085;
+  --pf-color-border: #d8dee8;
+  --pf-color-success: #12b76a;
+  --pf-color-warning: #f79009;
+  --pf-color-error: #f04438;
+  --pf-color-module-full: #4a90c4;
+  --pf-color-module-cut: #f28c45;
+  --pf-color-contour: #1d4f7a;
+  --pf-color-working: #12b76a;
+  --pf-radius-sm: 8px;
+  --pf-radius-md: 12px;
+  --pf-radius-lg: 18px;
+  --pf-shadow-card: 0 8px 28px rgb(16 24 40 / 8%);
+  --pf-font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --pf-touch-min: 44px;
+  --pf-spacing-xs: 4px;
+  --pf-spacing-sm: 8px;
+  --pf-spacing-md: 16px;
+  --pf-spacing-lg: 24px;
+  --pf-spacing-xl: 32px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--pf-font-family);
+  color: var(--pf-color-text);
+  background: var(--pf-color-background);
+  line-height: 1.5;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  min-height: var(--pf-touch-min);
+}
+
+input,
+select,
+textarea {
+  min-height: var(--pf-touch-min);
+}
+
+:focus-visible {
+  outline: 2px solid var(--pf-color-accent);
+  outline-offset: 2px;
+}
+
+.pf-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  color: var(--pf-color-muted);
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+}
+
+.print-only {
+  display: none;
+}

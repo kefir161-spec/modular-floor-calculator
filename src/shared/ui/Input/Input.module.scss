@@ -1,0 +1,31 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-spacing-xs);
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--pf-color-text);
+}
+
+.input {
+  width: 100%;
+  padding: 0 var(--pf-spacing-md);
+  border: 1px solid var(--pf-color-border);
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-color-surface);
+  color: var(--pf-color-text);
+
+  &:focus {
+    border-color: var(--pf-color-primary);
+    outline: none;
+    box-shadow: 0 0 0 3px rgb(29 79 122 / 15%);
+  }
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: var(--pf-color-muted);
+}

@@ -1,0 +1,13 @@
+.card {
+  background: var(--pf-color-surface);
+  border: 1px solid var(--pf-color-border);
+  border-radius: var(--pf-radius-md);
+  box-shadow: var(--pf-shadow-card);
+  padding: var(--pf-spacing-md);
+}
+
+.title {
+  margin: 0 0 var(--pf-spacing-md);
+  font-size: 1.125rem;
+  font-weight: 700;
+}

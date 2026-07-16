@@ -1,0 +1,138 @@
+.workspace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-spacing-md);
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-spacing-sm);
+}
+
+.modeTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pf-spacing-sm);
+}
+
+.dimensions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--pf-spacing-sm);
+}
+
+.unitSwitch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-spacing-xs);
+  font-size: 0.875rem;
+  font-weight: 600;
+
+  select {
+    padding: 0 var(--pf-spacing-md);
+    border: 1px solid var(--pf-color-border);
+    border-radius: var(--pf-radius-sm);
+  }
+}
+
+.area {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.alert {
+  margin: 0;
+  color: var(--pf-color-error);
+  font-size: 0.875rem;
+}
+
+.canvasWrap {
+  position: relative;
+  width: 100%;
+  border: 1px solid var(--pf-color-border);
+  border-radius: var(--pf-radius-md);
+  overflow: hidden;
+  background: #fff;
+}
+
+.canvasHint {
+  font-size: 0.8rem;
+  color: var(--pf-color-accent);
+  font-weight: 600;
+}
+
+.legend {
+  display: flex;
+  gap: var(--pf-spacing-md);
+  font-size: 0.75rem;
+  margin-left: auto;
+}
+
+.legendFull {
+  color: var(--pf-color-module-full);
+}
+
+.legendCut {
+  color: var(--pf-color-module-cut);
+}
+
+.legendCenter {
+  color: #c9a000;
+}
+
+.notice {
+  margin: 0;
+  padding: var(--pf-spacing-sm);
+  background: rgb(242 140 69 / 12%);
+  border-radius: var(--pf-radius-sm);
+  color: var(--pf-color-accent);
+  font-size: 0.85rem;
+}
+
+.canvasToolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--pf-spacing-sm);
+  padding: var(--pf-spacing-xs) var(--pf-spacing-sm);
+  border-bottom: 1px solid var(--pf-color-border);
+  background: var(--pf-color-background);
+  min-height: 2rem;
+}
+
+.polygonControls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-spacing-sm);
+}
+
+.templateRow,
+.historyRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pf-spacing-sm);
+}
+
+.hint,
+.edges {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--pf-color-muted);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+@media (max-width: 768px) {
+  .canvasWrap {
+    overflow-x: auto;
+  }
+}

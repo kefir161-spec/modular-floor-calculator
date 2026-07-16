@@ -1,0 +1,42 @@
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--pf-spacing-sm);
+}
+
+.nameInput {
+  width: min(200px, 40vw);
+  padding: 0 var(--pf-spacing-sm);
+  border: 1px solid var(--pf-color-border);
+  border-radius: var(--pf-radius-sm);
+  min-height: var(--pf-touch-min);
+  font-size: 0.875rem;
+}
+
+.loadSelect {
+  padding: 0 var(--pf-spacing-sm);
+  border: 1px solid var(--pf-color-border);
+  border-radius: var(--pf-radius-sm);
+  min-height: var(--pf-touch-min);
+  font-size: 0.875rem;
+  max-width: 180px;
+}
+
+.message {
+  font-size: 0.8rem;
+  color: var(--pf-color-success);
+  width: 100%;
+  text-align: right;
+}
+
+@media (max-width: 768px) {
+  .bar {
+    justify-content: flex-start;
+  }
+
+  .message {
+    text-align: left;
+  }
+}
