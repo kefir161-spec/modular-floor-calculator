@@ -83,4 +83,5 @@ export async function resolveLayoutTextureUrl(
 
 export function clearLayoutTextureCache(): void {
   cache.clear()
+  layoutTextureMapPromise = null
 }

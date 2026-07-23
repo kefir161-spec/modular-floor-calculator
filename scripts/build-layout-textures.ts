@@ -102,6 +102,20 @@ for (const family of families.values()) {
 
 const outPath = path.resolve(__dirname, '../public/data/layout-textures.json')
 const auditPath = path.resolve(__dirname, '../public/data/layout-textures-audit.json')
+
+const colorCollapse: Array<{ family: string; offers: number; uniqueTextures: number }> = []
+for (const family of families.values()) {
+  const urls = family.variantIds.map((id) => mapping[id]).filter(Boolean)
+  const uniqueTextures = new Set(urls).size
+  if (urls.length > 2 && uniqueTextures === 1) {
+    colorCollapse.push({
+      family: family.slug,
+      offers: urls.length,
+      uniqueTextures,
+    })
+  }
+}
+
 fs.writeFileSync(outPath, JSON.stringify(mapping, null, 2))
 fs.writeFileSync(
   auditPath,
@@ -111,6 +125,8 @@ fs.writeFileSync(
       totalOffers: offers.length,
       mappedVariants: processed,
       missingVariants: missing.length,
+      colorCollapseWarnings: colorCollapse.length,
+      colorCollapse,
       missing,
     },
     null,
@@ -120,3 +136,10 @@ fs.writeFileSync(
 
 console.log('saved', processed, 'variants to', outPath)
 console.log('missing', missing.length, 'see', auditPath)
+if (colorCollapse.length > 0) {
+  console.warn('COLOR COLLAPSE — все цвета серии схлопнуты в одну текстуру:')
+  for (const row of colorCollapse) {
+    console.warn(`  ${row.family}: ${row.offers} offers → ${row.uniqueTextures} texture`)
+  }
+  process.exitCode = 1
+}

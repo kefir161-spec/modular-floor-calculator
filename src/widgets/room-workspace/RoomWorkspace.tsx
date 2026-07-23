@@ -88,7 +88,13 @@ export function RoomWorkspace({ onStageReady }: { onStageReady?: (stage: Konva.S
     selectedVariant && layout.rotation === 90
       ? selectedVariant.widthMm
       : selectedVariant?.lengthMm
-  const { image: tileImage, crop: tileCrop } = useTileImage(selectedVariant?.url, selectedVariant?.id)
+  const { image: tileImage, crop: tileCrop } = useTileImage(
+    selectedVariant?.url,
+    selectedVariant?.id,
+    moduleWidthMm,
+    moduleLengthMm,
+    selectedVariant?.imageUrl,
+  )
 
   const widthMm = room.contour[1]?.x ?? 0
   const lengthMm = room.contour[2]?.y ?? 0

@@ -11,7 +11,7 @@ export type ModuleImageLayout = {
 /** Лёгкое увеличение — пазловые кромки на фото сходятся в сплошное полотно. */
 export const LAYOUT_TILE_SNAP = 1.055
 
-/** Внутренняя обрезка — убирает светлую «пазловую» кромку на фронтальном фото. */
+/** Внутренняя обрезка светлой пазловой кромки на фронтальном фото. */
 const PUZZLE_EDGE_INSET_RATIO = 0.045
 
 export type LayoutPhotoCrop = {
@@ -19,6 +19,11 @@ export type LayoutPhotoCrop = {
   sy: number
   sw: number
   sh: number
+}
+
+export type LayoutPhotoCropOptions = {
+  moduleWidthMm?: number
+  moduleLengthMm?: number
 }
 
 function isBackgroundPixel(r: number, g: number, b: number, a: number, threshold: number): boolean {
@@ -31,7 +36,6 @@ function isBackgroundPixel(r: number, g: number, b: number, a: number, threshold
 }
 
 function readSourcePixels(source: TilePatternSource): {
-  canvas: HTMLCanvasElement
   ctx: CanvasRenderingContext2D
   width: number
   height: number
@@ -47,13 +51,17 @@ function readSourcePixels(source: TilePatternSource): {
   if (!ctx) return null
 
   ctx.drawImage(source, 0, 0)
-  return { canvas, ctx, width, height }
+  return { ctx, width, height }
 }
 
-/** Обрезка белых/светлых полей вокруг плитки на фронтальном фото. */
+/**
+ * Обрезка по bbox плитки на фото.
+ * Квадратные модули — квадратный crop (как Sensor/Canal), прямоугольные — с пропорциями модуля.
+ * Если bbox не найден (светлая плитка / почти белый фон) — центральный crop по всему кадру.
+ */
 export function extractLayoutPhotoCrop(
   source: TilePatternSource,
-  backgroundThreshold = 210,
+  options?: LayoutPhotoCropOptions,
 ): LayoutPhotoCrop | null {
   const prepared = readSourcePixels(source)
   if (!prepared) return null
@@ -63,8 +71,10 @@ export function extractLayoutPhotoCrop(
   try {
     imageData = ctx.getImageData(0, 0, width, height)
   } catch {
-    return null
+    return buildCenteredCrop(width, height, options)
   }
+
+  const aspect = resolveCropAspect(options)
 
   const { data } = imageData
   let minX = width
@@ -75,11 +85,7 @@ export function extractLayoutPhotoCrop(
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4
-      const r = data[i]
-      const g = data[i + 1]
-      const b = data[i + 2]
-      const a = data[i + 3]
-      if (isBackgroundPixel(r, g, b, a, backgroundThreshold)) continue
+      if (isBackgroundPixel(data[i], data[i + 1], data[i + 2], data[i + 3], 210)) continue
       minX = Math.min(minX, x)
       minY = Math.min(minY, y)
       maxX = Math.max(maxX, x)
@@ -87,39 +93,67 @@ export function extractLayoutPhotoCrop(
     }
   }
 
-  if (minX >= maxX || minY >= maxY) return null
-
-  const cx = (minX + maxX) / 2
-  const cy = (minY + maxY) / 2
-  const bboxW = maxX - minX + 1
-  const bboxH = maxY - minY + 1
-  const innerSide = Math.min(bboxW, bboxH) * (1 - 2 * PUZZLE_EDGE_INSET_RATIO)
-  minX = Math.round(cx - innerSide / 2)
-  maxX = Math.round(cx + innerSide / 2)
-  minY = Math.round(cy - innerSide / 2)
-  maxY = Math.round(cy + innerSide / 2)
-
-  return {
-    sx: minX,
-    sy: minY,
-    sw: maxX - minX + 1,
-    sh: maxY - minY + 1,
+  if (minX >= maxX || minY >= maxY) {
+    return buildCenteredCrop(width, height, options)
   }
+
+  return buildAspectCrop((minX + maxX) / 2, (minY + maxY) / 2, maxX - minX + 1, maxY - minY + 1, width, height, aspect)
 }
 
-/** Фронтальное фото без полей — только содержимое плитки. */
-export function trimLayoutPhoto(source: HTMLImageElement): HTMLCanvasElement | null {
-  const crop = extractLayoutPhotoCrop(source)
-  if (!crop) return null
+function resolveCropAspect(options?: LayoutPhotoCropOptions): number {
+  if (options?.moduleWidthMm && options?.moduleLengthMm && options.moduleLengthMm > 0) {
+    return options.moduleWidthMm / options.moduleLengthMm
+  }
+  return 1
+}
 
-  const canvas = document.createElement('canvas')
-  canvas.width = crop.sw
-  canvas.height = crop.sh
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return null
+function buildCenteredCrop(
+  width: number,
+  height: number,
+  options?: LayoutPhotoCropOptions,
+): LayoutPhotoCrop {
+  return buildAspectCrop(width / 2, height / 2, width, height, width, height, resolveCropAspect(options))
+}
 
-  ctx.drawImage(source, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, crop.sw, crop.sh)
-  return canvas
+function buildAspectCrop(
+  cx: number,
+  cy: number,
+  bboxW: number,
+  bboxH: number,
+  frameW: number,
+  frameH: number,
+  aspect: number,
+): LayoutPhotoCrop {
+  const inset = 1 - 2 * PUZZLE_EDGE_INSET_RATIO
+
+  let cropW: number
+  let cropH: number
+  if (Math.abs(aspect - 1) < 0.05) {
+    const side = Math.min(bboxW, bboxH) * inset
+    cropW = side
+    cropH = side
+  } else if (bboxW / bboxH > aspect) {
+    cropH = bboxH * inset
+    cropW = cropH * aspect
+  } else {
+    cropW = bboxW * inset
+    cropH = cropW / aspect
+  }
+
+  cropW = Math.min(cropW, frameW)
+  cropH = Math.min(cropH, frameH)
+
+  let sx = Math.round(cx - cropW / 2)
+  let sy = Math.round(cy - cropH / 2)
+  sx = Math.max(0, Math.min(sx, frameW - Math.round(cropW)))
+  sy = Math.max(0, Math.min(sy, frameH - Math.round(cropH)))
+
+  return {
+    sx,
+    sy,
+    sw: Math.max(1, Math.round(cropW)),
+    sh: Math.max(1, Math.round(cropH)),
+  }
 }
 
 export function requiresCrossOriginImageLoad(url: string): boolean {

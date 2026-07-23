@@ -39,11 +39,12 @@ export function basenameFromPath(path: string): string {
 
 /**
  * На странице товара plastfactor.com у каждого SKU в MORE_PHOTOS:
- * [0] — перспективное фото (то же, что в XML <picture>),
+ * [0] — перспективное фото (то же, что в XML <picture>), цветоспецифичное,
  * [1] — фронтальный вид сверху для раскладки.
  *
- * У City / Broneplast второе уникальное фото часто общее для всех цветов серии —
- * тогда берём [0] (цветоспецифичное фото).
+ * Если [1] общее для нескольких цветов с разными [0] (City, Factor и т.п.) —
+ * всегда берём [0], иначе все цвета на полу схлопнутся в одну картинку.
+ * Если [1] разное по цветам — берём [1] (лучшая фронталь для тайлинга).
  */
 export function pickLayoutTexturePath(photoPaths: string[]): string | undefined {
   return pickLayoutTexturePathForVariant(photoPaths, new Set())

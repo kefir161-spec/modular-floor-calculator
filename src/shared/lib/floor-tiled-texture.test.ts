@@ -5,11 +5,19 @@ import type { LayoutModule } from '@/shared/types'
 function fullModule(x: number, y: number, size = 500): LayoutModule {
   return {
     id: `${x}-${y}`,
+    row: 0,
+    col: 0,
     x,
     y,
     widthMm: size,
     lengthMm: size,
     status: 'full',
+    polygon: [
+      { x, y },
+      { x: x + size, y },
+      { x: x + size, y: y + size },
+      { x, y: y + size },
+    ],
   }
 }
 

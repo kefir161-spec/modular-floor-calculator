@@ -34,7 +34,7 @@ describe('layout-texture-picker', () => {
     expect(picked).toBe('/upload/resize_cache/iblock/b/511_500_x/photo2.jpg')
   })
 
-  it('для City берёт первое уникальное фото, если второе общее для всех цветов', () => {
+  it('если [1] общее для разных цветов — берёт цветоспецифичное [0] (City/Factor)', () => {
     const shared = detectSharedSecondBasenames([
       [
         '/upload/resize_cache/iblock/a/1200/orange.jpg',
@@ -57,7 +57,29 @@ describe('layout-texture-picker', () => {
       ],
       shared,
     )
+    const blue = pickLayoutTexturePathForVariant(
+      [
+        '/upload/resize_cache/iblock/a/1200/blue.jpg',
+        '/upload/resize_cache/iblock/b/1200/shared-front.jpg',
+      ],
+      shared,
+    )
 
     expect(orange).toBe('/upload/resize_cache/iblock/a/1200/orange.jpg')
+    expect(blue).toBe('/upload/resize_cache/iblock/a/1200/blue.jpg')
+    expect(orange).not.toBe(blue)
+  })
+
+  it('для Factor с общим фронталом не схлопывает цвета в одну картинку', () => {
+    const variants = [
+      ['/upload/a/red.jpg', '/upload/b/factor-shared.jpg'],
+      ['/upload/a/green.jpg', '/upload/b/factor-shared.jpg'],
+      ['/upload/a/blue.jpg', '/upload/b/factor-shared.jpg'],
+    ]
+    const shared = detectSharedSecondBasenames(variants)
+    const urls = variants.map((paths) => pickLayoutTexturePathForVariant(paths, shared))
+
+    expect(new Set(urls).size).toBe(3)
+    expect(urls).toEqual(['/upload/a/red.jpg', '/upload/a/green.jpg', '/upload/a/blue.jpg'])
   })
 })

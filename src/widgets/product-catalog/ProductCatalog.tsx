@@ -83,7 +83,7 @@ export function ProductCatalog() {
           </div>
         </div>
       ) : (
-        <p className={styles.hint}>Нажмите цвет или «Рассчитать» — помещение заполнится плиткой</p>
+        <p className={styles.hint}>Нажмите цвет — помещение заполнится плиткой</p>
       )}
 
       <Input
@@ -219,20 +219,26 @@ function FamilyCard({
       <div className={styles.colorChips}>
         {family.variants.slice(0, expanded ? family.variants.length : 6).map((variant) => {
           const isSelected = selectedId === variant.id
+          const tooltip = getVariantTooltip(variant)
           return (
             <button
               key={variant.id}
               type="button"
               className={`${styles.colorChip} ${isSelected ? styles.colorChipActive : ''}`}
               disabled={!variant.calculable}
-              title={`${variant.colorName ?? variant.name}${variant.calculable ? '' : ' — нет размеров'}`}
+              aria-label={tooltip}
               onClick={() => onSelect(variant)}
             >
-              {variant.imageUrl ? (
-                <img src={variant.imageUrl} alt="" loading="lazy" />
-              ) : (
-                <span className={styles.chipFallback} />
-              )}
+              <span className={styles.chipMedia}>
+                {variant.imageUrl ? (
+                  <img src={variant.imageUrl} alt="" loading="lazy" />
+                ) : (
+                  <span className={styles.chipFallback} />
+                )}
+              </span>
+              <span className={styles.chipTooltip} role="tooltip">
+                {tooltip}
+              </span>
             </button>
           )
         })}
@@ -242,70 +248,31 @@ function FamilyCard({
           </button>
         ) : null}
       </div>
-
-      {expanded ? (
-        <ul className={styles.variantList}>
-          {family.variants.map((variant) => {
-            const isSelected = selectedId === variant.id
-            const unitPrices =
-              variant.lengthMm && variant.widthMm
-                ? resolveModuleUnitPrices({
-                    price: variant.price,
-                    priceUnit: variant.priceUnit,
-                    widthMm: variant.widthMm,
-                    lengthMm: variant.lengthMm,
-                  })
-                : null
-            const priceLabel = unitPrices ? formatUnitPrices(unitPrices) : null
-
-            return (
-              <li key={variant.id}>
-                <div
-                  className={`${styles.variantRow} ${isSelected ? styles.variantSelected : ''}`}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => variant.calculable && onSelect(variant)}
-                  onKeyDown={(e) => {
-                    if ((e.key === 'Enter' || e.key === ' ') && variant.calculable) {
-                      e.preventDefault()
-                      onSelect(variant)
-                    }
-                  }}
-                >
-                  <div className={styles.variantThumb}>
-                    {variant.imageUrl ? (
-                      <img src={variant.imageUrl} alt="" loading="lazy" />
-                    ) : null}
-                  </div>
-                  <div className={styles.variantText}>
-                    <span className={styles.variantName}>
-                      {variant.colorName ?? variant.name}
-                    </span>
-                    <span className={styles.variantMeta}>
-                      {[
-                        variant.thicknessMm ? `${variant.thicknessMm} мм` : null,
-                        variant.lengthMm && variant.widthMm
-                          ? `${variant.lengthMm}×${variant.widthMm} мм`
-                          : null,
-                        priceLabel,
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </span>
-                  </div>
-                  <span className={styles.variantAction}>
-                    {!variant.calculable
-                      ? 'Нет размеров'
-                      : isSelected
-                        ? '✓ Выбрано'
-                        : 'Рассчитать'}
-                  </span>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-      ) : null}
     </article>
   )
+}
+
+function getVariantTooltip(variant: ProductVariant): string {
+  const name = variant.colorName ?? variant.name
+  if (!variant.calculable) return `${name} — нет размеров`
+
+  const details: string[] = []
+  if (variant.thicknessMm) details.push(`${variant.thicknessMm} мм`)
+  if (variant.lengthMm && variant.widthMm) {
+    details.push(`${variant.lengthMm}×${variant.widthMm} мм`)
+  }
+
+  if (variant.lengthMm && variant.widthMm) {
+    const priceLabel = formatUnitPrices(
+      resolveModuleUnitPrices({
+        price: variant.price,
+        priceUnit: variant.priceUnit,
+        widthMm: variant.widthMm,
+        lengthMm: variant.lengthMm,
+      }),
+    )
+    if (priceLabel) details.push(priceLabel)
+  }
+
+  return details.length > 0 ? `${name}\n${details.join(' · ')}` : name
 }

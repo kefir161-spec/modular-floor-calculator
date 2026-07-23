@@ -33,7 +33,7 @@ export function buildFloorTiledTextureCanvas(
   bounds: FloorTiledTextureBounds,
 ): HTMLCanvasElement {
   const full = modules.filter((m) => m.status === 'full')
-  const { width: srcW, height: srcH } = getTilePatternSize(tileImage)
+  const { width: srcW } = getTilePatternSize(tileImage)
   const pixelsPerMm = srcW / moduleWidthMm
   const canvasW = Math.max(1, Math.ceil(bounds.widthMm * pixelsPerMm))
   const canvasH = Math.max(1, Math.ceil(bounds.heightMm * pixelsPerMm))
@@ -44,17 +44,12 @@ export function buildFloorTiledTextureCanvas(
   const ctx = canvas.getContext('2d')
   if (!ctx) return canvas
 
-  const sourceCrop =
-    crop.sw === srcW && crop.sh === srcH
-      ? crop
-      : { sx: 0, sy: 0, sw: srcW, sh: srcH }
-
   for (const mod of full) {
     const lx = (mod.x - bounds.x) * pixelsPerMm
     const ly = (mod.y - bounds.y) * pixelsPerMm
     const lw = mod.widthMm * pixelsPerMm
     const lh = mod.lengthMm * pixelsPerMm
-    drawLayoutPhoto(ctx, tileImage, sourceCrop, lx, ly, lw, lh)
+    drawLayoutPhoto(ctx, tileImage, crop, lx, ly, lw, lh)
   }
 
   return canvas

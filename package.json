@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "build:layout-textures": "npx tsx scripts/build-layout-textures.ts",
     "audit:layout-textures": "node scripts/audit-layout-textures.mjs",
+    "validate:layout-textures": "node scripts/validate-layout-textures.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
