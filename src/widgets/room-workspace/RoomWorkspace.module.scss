@@ -173,27 +173,64 @@
 .vertexA11y {
   position: absolute;
   left: var(--pf-spacing-sm);
-  top: calc(var(--pf-spacing-sm) + 52px);
+  top: var(--pf-spacing-sm);
   z-index: var(--pf-z-floating, 20);
-  max-width: min(280px, calc(100% - 16px));
-  max-height: 42%;
+  max-width: min(260px, calc(50% - 24px));
+  max-height: min(48%, calc(100% - 24px));
   overflow: auto;
-  padding: 8px 10px;
+  padding: 0;
   border-radius: var(--pf-radius-sm);
   background: rgb(255 255 255 / 94%);
   border: 1px solid var(--pf-color-border);
+  box-shadow: 0 1px 2px rgb(16 24 40 / 6%);
   pointer-events: auto;
 
   summary {
+    list-style: none;
     cursor: pointer;
-    font-size: 0.75rem;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px;
+    font-size: 0.72rem;
     font-weight: 650;
     color: var(--pf-color-text-secondary);
+    user-select: none;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  summary::before {
+    content: '';
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid currentColor;
+    transform: rotate(-90deg);
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
+
+  &[open] {
+    padding: 0 0 8px;
+  }
+
+  &[open] summary {
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--pf-color-border);
+  }
+
+  &[open] summary::before {
+    transform: rotate(0deg);
   }
 }
 
 .vertexHint {
-  margin: 0 0 6px;
+  margin: 0 10px 6px;
   font-size: var(--pf-type-helper-size, 0.75rem);
   color: var(--pf-color-muted);
 }
@@ -202,6 +239,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  padding: 0 10px;
 }
 
 .vertexField {
@@ -247,9 +285,12 @@
   }
 
   .vertexA11y {
-    position: static;
-    max-width: none;
-    max-height: none;
-    margin-top: var(--pf-spacing-sm);
+    position: absolute;
+    left: var(--pf-spacing-sm);
+    top: auto;
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    max-width: min(280px, calc(100% - 16px));
+    max-height: 36%;
+    margin-top: 0;
   }
 }

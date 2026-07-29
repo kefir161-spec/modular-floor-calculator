@@ -42,8 +42,22 @@
 }
 
 .shapeGlyph {
-  font-size: 1.1rem;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--pf-color-text);
+  line-height: 0;
+
+  svg {
+    display: block;
+    flex-shrink: 0;
+  }
+}
+
+.shapeActive .shapeGlyph {
+  color: var(--pf-color-primary-text, var(--pf-color-text));
 }
 
 .dims,

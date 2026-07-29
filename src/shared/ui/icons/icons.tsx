@@ -261,3 +261,46 @@ export function GridSnapIcon(props: IconProps) {
     </BaseIcon>
   )
 }
+
+/** Иконки форм помещения — единая толщина обводки и оптический размер ~14×14. */
+const SHAPE_STROKE = 1.75
+
+export function ShapeRectangleIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props} strokeWidth={SHAPE_STROKE}>
+      <rect x="5" y="5" width="14" height="14" />
+    </BaseIcon>
+  )
+}
+
+export function ShapeLIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props} strokeWidth={SHAPE_STROKE}>
+      <path d="M5 5h9v9h5v5H5z" />
+    </BaseIcon>
+  )
+}
+
+export function ShapeUIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props} strokeWidth={SHAPE_STROKE}>
+      <path d="M5 5h4v9h6V5h4v14H5z" />
+    </BaseIcon>
+  )
+}
+
+export function ShapeNicheIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props} strokeWidth={SHAPE_STROKE}>
+      <path d="M5 5h14v14h-4v-5H9v5H5z" />
+    </BaseIcon>
+  )
+}
+
+export function ShapeCustomIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props} strokeWidth={SHAPE_STROKE}>
+      <path d="M12 5l6.5 4v6L12 19l-6.5-4V9L12 5z" />
+    </BaseIcon>
+  )
+}

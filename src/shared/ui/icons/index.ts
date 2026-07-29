@@ -27,5 +27,10 @@ export {
   OpeningIcon,
   OrthoSnapIcon,
   GridSnapIcon,
+  ShapeRectangleIcon,
+  ShapeLIcon,
+  ShapeUIcon,
+  ShapeNicheIcon,
+  ShapeCustomIcon,
   type IconProps,
 } from './icons'

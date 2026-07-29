@@ -1,8 +1,17 @@
+import type { ComponentType } from 'react'
 import { useMemo, useState } from 'react'
 import { useCalculatorStore } from '@/app/store/calculator-store'
 import { SegmentedControl } from '@/shared/ui/SegmentedControl/SegmentedControl'
 import { Button } from '@/shared/ui/Button/Button'
 import { DimInput, parseDimInput } from '@/shared/ui/DimInput/DimInput'
+import {
+  ShapeCustomIcon,
+  ShapeLIcon,
+  ShapeNicheIcon,
+  ShapeRectangleIcon,
+  ShapeUIcon,
+  type IconProps,
+} from '@/shared/ui/icons'
 import {
   createLShapePolygon,
   createNichePolygon,
@@ -20,12 +29,16 @@ import styles from './RoomParamsPanel.module.scss'
 
 type ShapeId = 'rectangle' | 'l' | 'u' | 'niche' | 'custom'
 
-const SHAPE_OPTIONS: { id: ShapeId; label: string; hint: string }[] = [
-  { id: 'rectangle', label: 'Прямоуг.', hint: '□' },
-  { id: 'l', label: 'Г-образн.', hint: '⌜' },
-  { id: 'u', label: 'П-образн.', hint: '⊓' },
-  { id: 'niche', label: 'С нишей', hint: '▭' },
-  { id: 'custom', label: 'Своя', hint: '⬠' },
+const SHAPE_OPTIONS: {
+  id: ShapeId
+  label: string
+  Icon: ComponentType<IconProps>
+}[] = [
+  { id: 'rectangle', label: 'Прямоуг.', Icon: ShapeRectangleIcon },
+  { id: 'l', label: 'Г-образн.', Icon: ShapeLIcon },
+  { id: 'u', label: 'П-образн.', Icon: ShapeUIcon },
+  { id: 'niche', label: 'С нишей', Icon: ShapeNicheIcon },
+  { id: 'custom', label: 'Своя', Icon: ShapeCustomIcon },
 ]
 
 const AREA_PRESETS: { label: string; widthMm: number; lengthMm: number }[] = [
@@ -148,7 +161,7 @@ export function RoomParamsPanel() {
             onClick={() => applyShape(opt.id)}
           >
             <span className={styles.shapeGlyph} aria-hidden>
-              {opt.hint}
+              <opt.Icon width={22} height={22} />
             </span>
             <span>{opt.label}</span>
           </button>
