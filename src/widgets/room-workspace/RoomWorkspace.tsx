@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Stage, Layer, Line, Circle, Text, Rect } from 'react-konva'
+import { Stage, Layer, Line, Circle, Text, Rect, Group } from 'react-konva'
 import type Konva from 'konva'
 import {
   selectCanRedo,
@@ -23,6 +23,7 @@ import {
   obstacleWallOffsets,
 } from '@/shared/geometry/obstacles'
 import { insertVertexOnEdge, removeVertex, snapVertexDrag } from '@/shared/geometry/polygon-edit'
+import { edgeLabelTopLeft, getEdgeLabelPlacement } from './edge-dimension-label'
 import { useToast } from '@/shared/ui/Toast'
 import { LayoutModulesLayer } from './LayoutModulesLayer'
 import { CanvasToolbar } from './CanvasToolbar'
@@ -474,37 +475,48 @@ export function RoomWorkspace({
             })}
 
             {display.showDimensions &&
-              room.contour.map((point, i) => {
-                const next = room.contour[(i + 1) % room.contour.length]
-                const len = Math.hypot(next.x - point.x, next.y - point.y)
-                const mx = (point.x + next.x) / 2
-                const my = (point.y + next.y) / 2
-                const dx = next.x - point.x
-                const dy = next.y - point.y
-                const edgeLen = Math.hypot(dx, dy) || 1
-                const nx = dy / edgeLen
-                const ny = -dx / edgeLen
-                const offset = 28 / scale
-                const fontSize = Math.max(11, 13 / scale)
-                const letter = String.fromCharCode(65 + i)
-                const label =
-                  room.shapeType === 'polygon'
-                    ? `${letter} · ${formatLength(len, 'mm')}`
-                    : formatLength(len, 'mm')
-                const labelWidth = (room.shapeType === 'polygon' ? 110 : 80) / scale
+              room.contour.map((_, i) => {
+                const placement = getEdgeLabelPlacement(room.contour, i, {
+                  scale,
+                  withLetter: room.shapeType === 'polygon' || room.contour.length !== 4,
+                })
+                if (!placement) return null
+                const origin = edgeLabelTopLeft(placement)
+                const strokeW = 1 / scale
+                const radius = 4 / scale
                 return (
-                  <Text
-                    key={`dim-${i}`}
-                    x={mx + nx * offset - labelWidth / 2}
-                    y={my + ny * offset - fontSize / 2}
-                    width={labelWidth}
-                    text={label}
-                    fontSize={fontSize}
-                    fontStyle={room.shapeType === 'polygon' ? 'bold' : 'normal'}
-                    fill={KONVA_THEME.text}
-                    align="center"
-                    listening={false}
-                  />
+                  <Group key={`dim-${i}`} listening={false}>
+                    <Rect
+                      x={origin.x}
+                      y={origin.y}
+                      width={placement.boxWidth}
+                      height={placement.boxHeight}
+                      fill="rgba(255,255,255,0.95)"
+                      cornerRadius={radius}
+                      stroke="rgba(16,24,40,0.12)"
+                      strokeWidth={strokeW}
+                      shadowColor="rgba(16,24,40,0.12)"
+                      shadowBlur={4 / scale}
+                      shadowOffsetY={1 / scale}
+                      shadowOpacity={1}
+                      listening={false}
+                    />
+                    <Text
+                      x={origin.x}
+                      y={origin.y}
+                      width={placement.boxWidth}
+                      height={placement.boxHeight}
+                      text={placement.text}
+                      fontSize={placement.fontSize}
+                      fontFamily="system-ui, Segoe UI, sans-serif"
+                      fontStyle="600"
+                      fill={KONVA_THEME.text}
+                      align="center"
+                      verticalAlign="middle"
+                      listening={false}
+                      perfectDrawEnabled={false}
+                    />
+                  </Group>
                 )
               })}
           </Layer>

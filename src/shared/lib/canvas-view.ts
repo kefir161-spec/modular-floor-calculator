@@ -46,7 +46,7 @@ export function computeFitTransform(
   }
 
   const padPx = options.paddingPx ?? 12
-  const dimPadPx = options.showDimensions ? 20 : 6
+  const dimPadPx = options.showDimensions ? 36 : 6
 
   const availW = Math.max(40, canvasSize.width - padPx * 2 - dimPadPx * 2)
   const availH = Math.max(40, canvasSize.height - padPx * 2 - dimPadPx * 2)
