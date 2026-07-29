@@ -1,14 +1,34 @@
 import type { CalculationInput, CalculationResult, CalculationWarning } from '@/shared/types'
 import { APP_CONFIG } from '@/shared/config'
 import { polygonAreaSqm } from '@/shared/geometry/polygon'
-import { generateLayout } from '@/shared/geometry/layout'
+import { generateLayout, intersectionArea } from '@/shared/geometry/layout'
 import { estimateModulesToPurchase } from '@/shared/geometry/module-purchase'
 import { resolveModuleUnitPrices } from '@/shared/lib/pricing'
+import { obstacleToPolygon } from '@/shared/geometry/obstacles'
+import { isPolygonValid } from '@/shared/geometry/polygon'
 
 export function calculate(input: CalculationInput): CalculationResult {
   const warnings: CalculationWarning[] = []
+  const obstacles = input.obstacles ?? []
+
+  if (!isPolygonValid(input.roomPolygon)) {
+    warnings.push({
+      code: 'invalid_polygon',
+      message: 'Контур помещения самопересекается или невалиден — расчёт недоступен',
+    })
+    return emptyResult(input, warnings)
+  }
+
   const roomAreaSqm = polygonAreaSqm(input.roomPolygon)
-  const workingAreaSqm = polygonAreaSqm(input.workingPolygon)
+  let workingAreaSqm = polygonAreaSqm(input.workingPolygon)
+  let obstaclesAreaSqm = 0
+
+  for (const obs of obstacles) {
+    const poly = obstacleToPolygon(obs)
+    const cut = intersectionArea(input.workingPolygon, poly) / 1_000_000
+    obstaclesAreaSqm += cut
+  }
+  workingAreaSqm = Math.max(0, workingAreaSqm - obstaclesAreaSqm)
 
   if (roomAreaSqm <= 0 || workingAreaSqm <= 0) {
     warnings.push({ code: 'zero_area', message: 'Площадь помещения равна нулю' })
@@ -18,6 +38,7 @@ export function calculate(input: CalculationInput): CalculationResult {
     workingPolygon: input.workingPolygon,
     roomPolygon: input.roomPolygon,
     gapMm: input.gapMm,
+    obstacles: obstacles.map(obstacleToPolygon),
     moduleWidthMm: input.module.widthMm,
     moduleLengthMm: input.module.lengthMm,
     rotation: input.layout.rotation,
@@ -45,13 +66,9 @@ export function calculate(input: CalculationInput): CalculationResult {
     })
   }
 
-  const modulesWithWasteCount = Math.ceil(
-    modulesToPurchase * (1 + input.wastePercent / 100),
-  )
+  const modulesWithWasteCount = Math.ceil(modulesToPurchase * (1 + input.wastePercent / 100))
 
-  const moduleAreaSqm =
-    (input.module.widthMm * input.module.lengthMm) / 1_000_000
-
+  const moduleAreaSqm = (input.module.widthMm * input.module.lengthMm) / 1_000_000
   const purchaseAreaSqm = modulesWithWasteCount * moduleAreaSqm
 
   const unitPrices = resolveModuleUnitPrices({
@@ -98,6 +115,8 @@ export function calculate(input: CalculationInput): CalculationResult {
   return {
     roomAreaSqm,
     workingAreaSqm,
+    obstaclesAreaSqm,
+    openingsLengthMm: input.openingsLengthMm ?? 0,
     fullModulesCount,
     cutModulesCount,
     cutSourceModulesCount,
@@ -113,5 +132,30 @@ export function calculate(input: CalculationInput): CalculationResult {
     totalWeightKg,
     warnings,
     layout,
+  }
+}
+
+function emptyResult(
+  input: CalculationInput,
+  warnings: CalculationWarning[],
+): CalculationResult {
+  return {
+    roomAreaSqm: 0,
+    workingAreaSqm: 0,
+    obstaclesAreaSqm: 0,
+    openingsLengthMm: input.openingsLengthMm ?? 0,
+    fullModulesCount: 0,
+    cutModulesCount: 0,
+    cutSourceModulesCount: 0,
+    modulesToPurchase: 0,
+    totalModulesCount: 0,
+    wastePercent: input.wastePercent,
+    modulesWithWasteCount: 0,
+    purchaseAreaSqm: 0,
+    warnings,
+    layout: {
+      modules: [],
+      boundingBox: { minX: 0, minY: 0, maxX: 0, maxY: 0 },
+    },
   }
 }

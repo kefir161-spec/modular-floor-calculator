@@ -1,0 +1,38 @@
+.root {
+  position: relative;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: var(--pf-z-floating, 20);
+  min-width: 180px;
+  padding: 4px;
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-color-surface);
+  border: 1px solid var(--pf-color-border);
+  box-shadow: var(--pf-shadow-floating);
+}
+
+.item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  min-height: 44px;
+
+  &:hover:not(:disabled) {
+    background: var(--pf-color-hover, #eef2f6);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+}

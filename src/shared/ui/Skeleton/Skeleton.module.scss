@@ -1,0 +1,41 @@
+.skeleton {
+  display: block;
+  background: linear-gradient(
+    90deg,
+    var(--pf-color-hover, #eef2f6) 0%,
+    #f8fafc 50%,
+    var(--pf-color-hover, #eef2f6) 100%
+  );
+  background-size: 200% 100%;
+  animation: pf-shimmer 1.2s ease-in-out infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    background: var(--pf-color-hover, #eef2f6);
+  }
+}
+
+.sm {
+  border-radius: var(--pf-radius-sm);
+}
+
+.md {
+  border-radius: var(--pf-radius-md);
+}
+
+.lg {
+  border-radius: var(--pf-radius-lg);
+}
+
+.full {
+  border-radius: 999px;
+}
+
+@keyframes pf-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}

@@ -1,30 +1,51 @@
 :root {
-  --pf-color-primary: #1d4f7a;
-  --pf-color-primary-hover: #163f62;
-  --pf-color-accent: #f28c45;
-  --pf-color-background: #f5f7fa;
+  /* Базовые значения; полный набор инжектируется из tokens.ts при старте */
+  --pf-color-primary: #b5d200;
+  --pf-color-primary-hover: #97b400;
+  --pf-color-primary-text: #4a5600;
+  --pf-color-accent: #b5d200;
+  --pf-color-on-brand: #101828;
+  --pf-color-background: #eef1f5;
+  --pf-color-canvas: #f7f8fa;
   --pf-color-surface: #ffffff;
-  --pf-color-text: #182230;
-  --pf-color-muted: #667085;
-  --pf-color-border: #d8dee8;
-  --pf-color-success: #12b76a;
-  --pf-color-warning: #f79009;
-  --pf-color-error: #f04438;
-  --pf-color-module-full: #4a90c4;
-  --pf-color-module-cut: #f28c45;
+  --pf-color-surface-muted: #f3f5f8;
+  --pf-color-text: #101828;
+  --pf-color-text-secondary: #344054;
+  --pf-color-muted: #475467;
+  --pf-color-border: #d0d7e2;
+  --pf-color-success: #027a48;
+  --pf-color-warning: #b54708;
+  --pf-color-error: #d92d20;
+  --pf-color-module-full: #3d7eab;
+  --pf-color-module-cut: #e07a2f;
   --pf-color-contour: #1d4f7a;
-  --pf-color-working: #12b76a;
-  --pf-radius-sm: 8px;
-  --pf-radius-md: 12px;
-  --pf-radius-lg: 18px;
-  --pf-shadow-card: 0 8px 28px rgb(16 24 40 / 8%);
-  --pf-font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --pf-color-working: #027a48;
+  --pf-radius-sm: 6px;
+  --pf-radius-md: 10px;
+  --pf-radius-lg: 14px;
+  --pf-shadow-card: none;
+  --pf-shadow-floating: 0 4px 18px rgb(16 24 40 / 10%);
+  --pf-font-family: 'Segoe UI Variable Text', 'Segoe UI', 'Helvetica Neue', ui-sans-serif, sans-serif;
   --pf-touch-min: 44px;
   --pf-spacing-xs: 4px;
   --pf-spacing-sm: 8px;
   --pf-spacing-md: 16px;
   --pf-spacing-lg: 24px;
   --pf-spacing-xl: 32px;
+  --pf-motion-fast: 120ms;
+  --pf-motion-normal: 200ms;
+  --pf-motion-slow: 280ms;
+  --pf-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --pf-focus-ring-width: 2px;
+  --pf-focus-ring-offset: 2px;
+  --pf-focus-ring-color: #97b400;
+  --pf-type-page-title-size: 1.35rem;
+  --pf-type-section-size: 0.8rem;
+  --pf-type-label-size: 0.8rem;
+  --pf-type-helper-size: 0.75rem;
+  --pf-type-result-value-size: 1.5rem;
+  --pf-type-warning-size: 0.85rem;
+  --pf-type-nav-size: 0.7rem;
 }
 
 *,
@@ -38,13 +59,18 @@ body,
 #root {
   margin: 0;
   min-height: 100%;
+  height: 100%;
 }
 
 body {
   font-family: var(--pf-font-family);
   color: var(--pf-color-text);
-  background: var(--pf-color-background);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgb(181 210 0 / 10%), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgb(29 79 122 / 5%), transparent 50%),
+    var(--pf-color-background);
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
 button,
@@ -66,8 +92,19 @@ textarea {
 }
 
 :focus-visible {
-  outline: 2px solid var(--pf-color-accent);
-  outline-offset: 2px;
+  outline: var(--pf-focus-ring-width) solid var(--pf-focus-ring-color);
+  outline-offset: var(--pf-focus-ring-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .pf-loading {
@@ -78,6 +115,64 @@ textarea {
   color: var(--pf-color-muted);
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skipLink {
+  position: absolute;
+  left: var(--pf-spacing-sm);
+  top: var(--pf-spacing-sm);
+  z-index: calc(var(--pf-z-tooltip, 70) + 1);
+  padding: 8px 12px;
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-color-surface);
+  color: var(--pf-color-text);
+  border: 1px solid var(--pf-color-border-strong, var(--pf-color-border));
+  font-weight: 650;
+  text-decoration: none;
+  transform: translateY(-120%);
+
+  &:focus {
+    transform: translateY(0);
+  }
+}
+
+.pf-type-page-title {
+  font-size: var(--pf-type-page-title-size);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.pf-type-section {
+  font-size: var(--pf-type-section-size);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pf-color-muted);
+}
+
+.pf-type-helper {
+  font-size: var(--pf-type-helper-size);
+  color: var(--pf-color-muted);
+}
+
+.pf-type-result-value {
+  font-size: var(--pf-type-result-value-size);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
 @media print {
   .no-print {
     display: none !important;
@@ -85,6 +180,10 @@ textarea {
 
   .print-only {
     display: block !important;
+  }
+
+  body {
+    background: #fff;
   }
 }
 

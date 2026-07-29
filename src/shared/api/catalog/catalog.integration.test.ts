@@ -25,4 +25,15 @@ describe('XML catalog integration', () => {
     expect(factor?.variants[0]?.lengthMm).toBe(375)
     expect(factor?.variants[0]?.priceUnit).toBe('piece')
   })
+
+  it('регрессия: в каталоге есть calculable варианты с размерами', () => {
+    const xmlPath = resolve(rootDir, 'public/data/plastfactor_catalog.xml')
+    const xml = readFileSync(xmlPath, 'utf8')
+    const data = new YmlCatalogAdapter().normalize(loadCatalogFromString(xml))
+
+    const calculable = data.families.flatMap((f) => f.variants).filter((v) => v.calculable)
+    expect(calculable.length).toBeGreaterThan(10)
+    expect(calculable.every((v) => v.lengthMm && v.widthMm)).toBe(true)
+    expect(calculable.some((v) => v.sourceId.length > 0)).toBe(true)
+  })
 })

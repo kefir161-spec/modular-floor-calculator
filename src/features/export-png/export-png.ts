@@ -18,6 +18,9 @@ export async function exportStageToPng(stage: Konva.Stage, filename: string): Pr
   link.click()
 }
 
+/** @deprecated используйте exportStageToPngAtFit — экспорт должен быть в fit-виде */
+export { exportStageToPngAtFit, captureStageDataUrlAtFit } from './export-stage-fit'
+
 export function buildExportFilename(prefix: string): string {
   const date = new Date().toISOString().slice(0, 10)
   return `${prefix}-${date}.png`

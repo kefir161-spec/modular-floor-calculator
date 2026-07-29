@@ -1,0 +1,126 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-spacing-sm);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pf-spacing-sm);
+}
+
+.sectionLabel {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--pf-color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.addBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: var(--pf-touch-min);
+  padding: 0 var(--pf-spacing-sm);
+  font-size: 0.8rem;
+}
+
+.empty {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--pf-color-muted);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-spacing-sm);
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  padding: var(--pf-spacing-sm);
+  border: 1px solid var(--pf-color-border);
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-color-surface);
+}
+
+.itemSelected {
+  border-color: var(--pf-color-primary);
+  background: var(--pf-color-hover, rgb(181 210 0 / 18%));
+}
+
+.itemSelect {
+  justify-self: start;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--pf-color-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.removeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--pf-touch-min);
+  height: var(--pf-touch-min);
+  border: none;
+  border-radius: var(--pf-radius-sm);
+  background: transparent;
+  color: var(--pf-color-muted);
+  cursor: pointer;
+}
+
+.removeBtn:hover {
+  color: var(--pf-color-error);
+  background: var(--pf-color-surface-muted, #f3f5f8);
+}
+
+.fields {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--pf-color-muted);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--pf-color-muted);
+
+  input {
+    min-height: 36px;
+    padding: 0 8px;
+    border: 1px solid var(--pf-color-border);
+    border-radius: var(--pf-radius-sm);
+    font: inherit;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--pf-color-text);
+  }
+}

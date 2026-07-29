@@ -1,0 +1,86 @@
+.popover {
+  position: fixed;
+  z-index: var(--pf-z-floating, 20);
+  min-width: 220px;
+  max-width: min(360px, calc(100vw - 16px));
+  padding: var(--pf-spacing-sm);
+  background: var(--pf-color-surface);
+  border: 1px solid var(--pf-color-border);
+  border-radius: var(--pf-radius-md);
+  box-shadow: var(--pf-shadow-floating, 0 4px 16px rgb(16 24 40 / 12%));
+  outline: none;
+  animation: pf-pop-in var(--pf-motion-normal, 200ms) var(--pf-ease-standard);
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.sheetRoot {
+  position: fixed;
+  inset: 0;
+  z-index: var(--pf-z-drawer, 40);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  margin: 0;
+  padding: 0;
+  background: rgb(16 24 40 / 40%);
+  cursor: pointer;
+}
+
+.sheet {
+  position: relative;
+  z-index: 1;
+  max-height: min(75dvh, 520px);
+  overflow: auto;
+  padding: var(--pf-spacing-md);
+  padding-bottom: calc(var(--pf-spacing-md) + env(safe-area-inset-bottom, 0));
+  background: var(--pf-color-surface);
+  border-radius: var(--pf-radius-lg) var(--pf-radius-lg) 0 0;
+  box-shadow: var(--pf-shadow-drawer);
+  outline: none;
+  animation: pf-sheet-up var(--pf-motion-panel, 280ms) var(--pf-ease-standard);
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.title {
+  margin: 0 0 var(--pf-spacing-sm);
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-spacing-sm);
+}
+
+@keyframes pf-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pf-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}

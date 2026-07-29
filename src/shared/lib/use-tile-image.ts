@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import useImage from 'use-image'
+import { resolveStoredTileCrop, type StoredTileCrop } from '@/shared/api/catalog/layout-crops'
 import { resolveLayoutTextureUrl } from '@/shared/api/catalog/layout-texture-resolver'
 import {
   extractLayoutPhotoCrop,
   requiresCrossOriginImageLoad,
+  resolveStoredCrop,
   resolveTileImageUrl,
   type LayoutPhotoCrop,
   type LayoutPhotoCropOptions,
@@ -19,40 +21,38 @@ type TileImageState = {
 }
 
 const EMPTY_IMAGE = 'data:image/gif;base64,R0lGODlhAQABAAAAACw='
-const URL_CACHE_VERSION = 17
+const URL_CACHE_VERSION = 18
 
 const urlCache = new Map<string, string>()
-const cropCache = new Map<string, LayoutPhotoCrop>()
 
 function getUrlCacheKey(variantId: string): string {
   return `${URL_CACHE_VERSION}:${variantId}`
 }
 
-function getCropCacheKey(layoutUrl: string, cropOptions: LayoutPhotoCropOptions): string {
-  const w = cropOptions.moduleWidthMm ?? 0
-  const h = cropOptions.moduleLengthMm ?? 0
-  return `${layoutUrl}|${w}|${h}`
-}
-
 export function clearTileImageCache(): void {
   urlCache.clear()
-  cropCache.clear()
 }
 
-async function resolveLayoutPhotoUrl(
+type ResolvedTexture = {
+  url?: string
+  /** Область из предрасчёта — применима только к этому URL. */
+  crop?: StoredTileCrop
+}
+
+async function resolveTexture(
   variantUrl: string,
   variantId: string,
   fallbackImageUrl?: string,
-): Promise<string | undefined> {
-  const cached = urlCache.get(getUrlCacheKey(variantId))
-  if (cached) return cached
+): Promise<ResolvedTexture> {
+  const cacheKey = getUrlCacheKey(variantId)
+  const cachedUrl = urlCache.get(cacheKey)
+  const layoutUrl = cachedUrl ?? (await resolveLayoutTextureUrl(variantUrl, variantId))
+  if (layoutUrl) urlCache.set(cacheKey, layoutUrl)
 
-  const layoutUrl = await resolveLayoutTextureUrl(variantUrl, variantId)
-  const resolved = layoutUrl || fallbackImageUrl
-  if (resolved) {
-    urlCache.set(getUrlCacheKey(variantId), resolved)
+  return {
+    url: layoutUrl || fallbackImageUrl,
+    crop: layoutUrl ? await resolveStoredTileCrop(variantId) : undefined,
   }
-  return resolved
 }
 
 export function useTileImage(
@@ -62,28 +62,32 @@ export function useTileImage(
   moduleLengthMm?: number,
   fallbackImageUrl?: string,
 ): TileImageState {
-  const [layoutUrl, setLayoutUrl] = useState<string | undefined>()
-  const [urlResolved, setUrlResolved] = useState(false)
-  const [displayImage, setDisplayImage] = useState<TilePatternSource | undefined>()
-  const [crop, setCrop] = useState<LayoutPhotoCrop | null>(null)
+  const [texture, setTexture] = useState<ResolvedTexture>({})
+  const [resolved, setResolved] = useState(false)
+  const [stable, setStable] = useState<{
+    image: TilePatternSource
+    crop: LayoutPhotoCrop
+    variantId?: string
+  } | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    setLayoutUrl(undefined)
-    setUrlResolved(false)
-    setDisplayImage(undefined)
-    setCrop(null)
+    // не очищаем texture сразу — оставляем предыдущий URL до готовности нового
+    setResolved(false)
 
     if (!variantUrl || !variantId) {
+      setTexture({})
+      setStable(null)
+      setResolved(true)
       return () => {
         cancelled = true
       }
     }
 
-    void resolveLayoutPhotoUrl(variantUrl, variantId, fallbackImageUrl).then((url) => {
+    void resolveTexture(variantUrl, variantId, fallbackImageUrl).then((next) => {
       if (cancelled) return
-      setLayoutUrl(url)
-      setUrlResolved(true)
+      setTexture(next)
+      setResolved(true)
     })
 
     return () => {
@@ -91,6 +95,7 @@ export function useTileImage(
     }
   }, [variantUrl, variantId, fallbackImageUrl])
 
+  const layoutUrl = texture.url
   const proxiedUrl = layoutUrl ? resolveTileImageUrl(layoutUrl) : undefined
   const useCrossOrigin = proxiedUrl ? requiresCrossOriginImageLoad(proxiedUrl) : false
 
@@ -114,62 +119,53 @@ export function useTileImage(
     catalogNeedsCors ? 'anonymous' : undefined,
   )
 
-  const photoImage = (
-    (proxiedUrl && proxiedImage) ||
-    (tryDirect && directImage) ||
-    (catalogProxied && catalogImage) ||
-    undefined
-  ) as HTMLImageElement | undefined
+  const layoutPhoto = ((proxiedUrl && proxiedImage) || (tryDirect && directImage) || undefined) as
+    | HTMLImageElement
+    | undefined
+  const catalogPhoto = (catalogProxied && catalogImage) || undefined
+  const photoImage = layoutPhoto ?? catalogPhoto
 
-  const activeUrl =
-    (proxiedUrl && proxiedImage && layoutUrl) ||
-    (tryDirect && directImage && layoutUrl) ||
-    (catalogProxied && catalogImage && fallbackImageUrl) ||
-    undefined
+  const crop = useMemo(() => {
+    if (!photoImage) return null
 
-  useEffect(() => {
-    if (!photoImage || !activeUrl) {
-      setDisplayImage(undefined)
-      setCrop(null)
-      return
-    }
-
-    const cropOptions: LayoutPhotoCropOptions = { moduleWidthMm, moduleLengthMm }
-    const cropKey = getCropCacheKey(activeUrl, cropOptions)
-    const cachedCrop = cropCache.get(cropKey)
-    if (cachedCrop) {
-      setDisplayImage(photoImage)
-      setCrop(cachedCrop)
-      return
-    }
-
-    const nextCrop = extractLayoutPhotoCrop(photoImage, cropOptions)
-    if (!nextCrop) {
-      setDisplayImage(undefined)
-      setCrop(null)
-      return
-    }
-
-    cropCache.set(cropKey, nextCrop)
-    setDisplayImage(photoImage)
-    setCrop(nextCrop)
-  }, [photoImage, activeUrl, moduleWidthMm, moduleLengthMm])
+    const options: LayoutPhotoCropOptions = { moduleWidthMm, moduleLengthMm }
+    const stored =
+      layoutPhoto && texture.crop ? resolveStoredCrop(photoImage, texture.crop, options) : null
+    return stored ?? extractLayoutPhotoCrop(photoImage, options)
+  }, [photoImage, layoutPhoto, texture.crop, moduleWidthMm, moduleLengthMm])
 
   const loading =
     Boolean(variantUrl && variantId) &&
-    (!urlResolved ||
+    (!resolved ||
       (Boolean(layoutUrl) &&
         !photoImage &&
         (proxiedStatus === 'loading' ||
           (tryDirect && directStatus === 'loading') ||
           (tryCatalogFallback && catalogStatus === 'loading'))))
 
+  useEffect(() => {
+    if (photoImage && crop && variantId) {
+      setStable({ image: photoImage, crop, variantId })
+    }
+  }, [photoImage, crop, variantId])
+
+  // Пока грузится новый вариант — показываем предыдущую готовую текстуру (без белой вспышки)
   if (loading) {
+    if (stable && stable.variantId === variantId) {
+      return { image: stable.image, crop: stable.crop, status: 'loading' }
+    }
+    if (stable && stable.variantId !== variantId) {
+      return { image: stable.image, crop: stable.crop, status: 'loading' }
+    }
     return { image: undefined, crop: null, status: 'loading' }
   }
 
-  if (displayImage && crop) {
-    return { image: displayImage, crop, status: 'ready' }
+  if (photoImage && crop) {
+    return { image: photoImage, crop, status: 'ready' }
+  }
+
+  if (stable) {
+    return { image: stable.image, crop: stable.crop, status: 'error' }
   }
 
   return { image: undefined, crop: null, status: 'error' }

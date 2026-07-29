@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "build:layout-textures": "npx tsx scripts/build-layout-textures.ts",
     "audit:layout-textures": "node scripts/audit-layout-textures.mjs",
+    "build:tile-crops": "npx tsx scripts/build-tile-crops.ts",
+    "audit:tile-crops": "npx tsx scripts/audit-tile-crops.ts",
     "validate:layout-textures": "node scripts/validate-layout-textures.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
@@ -40,6 +42,7 @@
     "jsdom": "^29.1.1",
     "oxlint": "^1.71.0",
     "sass": "^1.101.0",
+    "sharp": "^0.35.3",
     "typescript": "~6.0.2",
     "vite": "^8.1.1",
     "vitest": "^4.1.10"

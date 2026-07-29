@@ -1,0 +1,123 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-spacing-md);
+}
+
+.sectionLabel {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--pf-color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.shapes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.shapeBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 56px;
+  padding: 6px 4px;
+  border: 1px solid var(--pf-color-border);
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-color-surface);
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--pf-color-text);
+}
+
+.shapeActive {
+  border-color: var(--pf-color-primary);
+  background: var(--pf-color-hover, rgb(181 210 0 / 18%));
+  color: var(--pf-color-text);
+}
+
+.shapeGlyph {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.dims,
+.edges {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-spacing-sm);
+}
+
+.presets {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.presetBtn {
+  min-height: var(--pf-touch-min);
+  padding: 0 var(--pf-spacing-sm);
+  border: 1px solid var(--pf-color-border);
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-color-surface);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--pf-color-text);
+}
+
+.presetBtn:hover {
+  border-color: var(--pf-color-primary);
+  color: var(--pf-color-primary);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+
+  input {
+    min-height: var(--pf-touch-min);
+    padding: 0 var(--pf-spacing-sm);
+    border: 1px solid var(--pf-color-border);
+    border-radius: var(--pf-radius-sm);
+    font: inherit;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  input[aria-invalid='true'] {
+    border-color: var(--pf-color-error);
+  }
+}
+
+.fieldError {
+  color: var(--pf-color-error);
+  font-weight: 500;
+  font-size: 0.75rem;
+}
+
+.edgeHint {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--pf-color-muted);
+}
+
+.area {
+  margin: 0;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.alert {
+  margin: 0;
+  color: var(--pf-color-error);
+  font-size: 0.85rem;
+}

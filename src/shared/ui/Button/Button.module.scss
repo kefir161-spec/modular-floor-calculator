@@ -7,7 +7,13 @@
   border-radius: var(--pf-radius-sm);
   border: 1px solid transparent;
   font-weight: 600;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background var(--pf-motion-fast) var(--pf-ease-standard),
+    border-color var(--pf-motion-fast) var(--pf-ease-standard);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
 
   &:disabled {
     opacity: 0.5;
@@ -17,7 +23,7 @@
 
 .primary {
   background: var(--pf-color-primary);
-  color: #fff;
+  color: var(--pf-color-on-brand, #101828);
 
   &:hover:not(:disabled) {
     background: var(--pf-color-primary-hover);
@@ -30,15 +36,16 @@
   color: var(--pf-color-text);
 
   &:hover:not(:disabled) {
-    border-color: var(--pf-color-primary);
+    border-color: var(--pf-color-border-strong, var(--pf-color-primary));
+    background: var(--pf-color-hover);
   }
 }
 
 .ghost {
   background: transparent;
-  color: var(--pf-color-primary);
+  color: var(--pf-color-primary-text, var(--pf-color-text));
 
   &:hover:not(:disabled) {
-    background: rgb(29 79 122 / 8%);
+    background: var(--pf-color-hover);
   }
 }

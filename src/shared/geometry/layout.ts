@@ -225,6 +225,8 @@ export type GenerateLayoutInput = {
   roomPolygon?: Polygon
   /** Технологический зазор: мелкая обрезка у стены не считается подрезкой модуля */
   gapMm?: number
+  /** Препятствия внутри зоны укладки */
+  obstacles?: Polygon[]
   moduleWidthMm: number
   moduleLengthMm: number
   rotation: 0 | 90
@@ -233,9 +235,28 @@ export type GenerateLayoutInput = {
   startPoint: 'corner' | 'center'
 }
 
+function clipModuleByObstacles(
+  rect: Polygon,
+  workingPolygon: Polygon,
+  obstaclePolys: Polygon[],
+): { status: 'full' | 'cut' | 'outside'; clipped?: Polygon } {
+  let parts = intersectPolygons(rect, workingPolygon)
+  for (const hole of obstaclePolys) {
+    parts = parts.flatMap((p) => differencePolygons(p, hole))
+  }
+  if (parts.length === 0) return { status: 'outside' }
+  const clipped = parts.reduce((a, b) => (polygonArea(a) >= polygonArea(b) ? a : b))
+  const moduleArea = polygonArea(rect)
+  const remain = polygonArea(clipped)
+  if (remain < EPS) return { status: 'outside' }
+  if (Math.abs(remain - moduleArea) < EPS) return { status: 'full' }
+  return { status: 'cut', clipped }
+}
+
 export function generateLayout(input: GenerateLayoutInput) {
   const { workingPolygon, rotation, offsetX, offsetY, startPoint, gapMm = 0 } = input
   const alignmentPolygon = input.roomPolygon ?? workingPolygon
+  const obstaclePolys = input.obstacles ?? []
   let { moduleWidthMm, moduleLengthMm } = input
 
   if (rotation === 90) {
@@ -295,12 +316,22 @@ export function generateLayout(input: GenerateLayoutInput) {
       const x = startX + col * moduleWidthMm
       const y = startY + row * moduleLengthMm
       const rect = createModuleRect(x, y, moduleWidthMm, moduleLengthMm)
-      const status = resolveModuleStatus(rect, workingPolygon, gapMm)
+
+      let status: 'full' | 'cut' | 'outside'
+      let clippedPolygon: Polygon | undefined
+
+      if (obstaclePolys.length === 0) {
+        status = resolveModuleStatus(rect, workingPolygon, gapMm)
+        clippedPolygon = status === 'cut' ? getClippedPolygon(rect, workingPolygon) : undefined
+      } else {
+        const clipped = clipModuleByObstacles(rect, workingPolygon, obstaclePolys)
+        status = clipped.status
+        clippedPolygon = clipped.clipped
+        // При препятствиях не понижаем cut→full по эвристике зазора:
+        // она обнуляла реальные вырезы колонн при gapMm > 0.
+      }
 
       if (status === 'outside') continue
-
-      const clippedPolygon =
-        status === 'cut' ? getClippedPolygon(rect, workingPolygon) : undefined
 
       modules.push({
         id: `m-${id++}`,
@@ -324,49 +355,3 @@ export function generateLayout(input: GenerateLayoutInput) {
   }
 }
 
-export type OptimizeLayoutInput = {
-  workingPolygon: Polygon
-  roomPolygon?: Polygon
-  gapMm?: number
-  moduleWidthMm: number
-  moduleLengthMm: number
-  rotation: 0 | 90
-  startPoint: 'corner' | 'center'
-}
-
-export function optimizeLayout(input: OptimizeLayoutInput) {
-  let { moduleWidthMm, moduleLengthMm } = input
-  if (input.rotation === 90) {
-    ;[moduleWidthMm, moduleLengthMm] = [moduleLengthMm, moduleWidthMm]
-  }
-
-  if (input.startPoint === 'center' || input.startPoint === 'corner') {
-    const layout = generateLayout({ ...input, offsetX: 0, offsetY: 0 })
-    return {
-      offsetX: 0,
-      offsetY: 0,
-      cutCount: layout.modules.filter((m) => m.status === 'cut').length,
-      totalCount: layout.modules.length,
-    }
-  }
-
-  let best = { offsetX: 0, offsetY: 0, cutCount: Infinity, totalCount: Infinity }
-  const stepX = Math.max(moduleWidthMm / 4, 10)
-  const stepY = Math.max(moduleLengthMm / 4, 10)
-
-  for (let ox = 0; ox < moduleWidthMm; ox += stepX) {
-    for (let oy = 0; oy < moduleLengthMm; oy += stepY) {
-      const layout = generateLayout({ ...input, offsetX: ox, offsetY: oy })
-      const cutCount = layout.modules.filter((m) => m.status === 'cut').length
-      const totalCount = layout.modules.length
-      if (
-        cutCount < best.cutCount ||
-        (cutCount === best.cutCount && totalCount < best.totalCount)
-      ) {
-        best = { offsetX: ox, offsetY: oy, cutCount, totalCount }
-      }
-    }
-  }
-
-  return best
-}

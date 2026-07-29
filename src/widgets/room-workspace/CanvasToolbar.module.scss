@@ -1,0 +1,17 @@
+.toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--pf-radius-md);
+  background: var(--pf-color-surface);
+  border: 1px solid var(--pf-color-border);
+  box-shadow: var(--pf-shadow-floating, 0 4px 16px rgb(16 24 40 / 12%));
+}
+
+.sep {
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background: var(--pf-color-border);
+}

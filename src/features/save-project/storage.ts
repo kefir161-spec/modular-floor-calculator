@@ -1,15 +1,52 @@
-import type { SavedProject } from '@/shared/types'
+import type { DisplaySettings, LayoutSettings, RoomState, SavedLayoutSettings, SavedProject } from '@/shared/types'
 import { APP_CONFIG } from '@/shared/config'
 
-export function migrateProject(project: SavedProject): SavedProject {
-  if (project.schemaVersion >= APP_CONFIG.schemaVersion) return project
+function migrateLayout(layout: SavedLayoutSettings): SavedLayoutSettings {
+  return {
+    rotation: layout.rotation ?? 0,
+    offsetX: layout.offsetX ?? 0,
+    offsetY: layout.offsetY ?? 0,
+    startPoint: layout.startPoint ?? 'corner',
+    showDimensions: layout.showDimensions ?? true,
+    showCutVisualization: layout.showCutVisualization ?? true,
+    // showGrid намеренно отбрасывается
+  }
+}
 
+function migrateRoom(room: Partial<RoomState> & Pick<RoomState, 'contour' | 'shapeType' | 'gapMm'>): RoomState {
+  return {
+    shapeType: room.shapeType,
+    contour: room.contour,
+    gapMm: room.gapMm,
+    unit: room.unit ?? 'mm',
+    obstacles: room.obstacles ?? [],
+    openings: room.openings ?? [],
+  }
+}
+
+export function migrateProject(project: SavedProject): SavedProject {
   return {
     ...project,
-    schemaVersion: APP_CONFIG.schemaVersion,
-    room: {
-      ...project.room,
-      unit: project.room.unit ?? 'mm',
+    schemaVersion: Math.max(project.schemaVersion, APP_CONFIG.schemaVersion),
+    room: migrateRoom(project.room),
+    layout: migrateLayout(project.layout),
+  }
+}
+
+export function splitSavedLayout(saved: SavedLayoutSettings): {
+  layout: LayoutSettings
+  display: DisplaySettings
+} {
+  return {
+    layout: {
+      rotation: saved.rotation,
+      offsetX: saved.offsetX,
+      offsetY: saved.offsetY,
+      startPoint: saved.startPoint,
+    },
+    display: {
+      showDimensions: saved.showDimensions,
+      showCutVisualization: saved.showCutVisualization,
     },
   }
 }

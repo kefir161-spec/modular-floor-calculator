@@ -60,6 +60,27 @@ export type CatalogEligibilityConfig = {
 
 export type RoomShapeType = 'rectangle' | 'polygon'
 
+/** Прямоугольное внутреннее препятствие (колонна, бассейн и т.п.), мм */
+export type Obstacle = {
+  id: string
+  kind: 'rectangle'
+  x: number
+  y: number
+  widthMm: number
+  lengthMm: number
+}
+
+/**
+ * Открытый край / проём на стороне контура.
+ * offsetMm — от начала ребра (вершина edgeIndex), lengthMm — длина вдоль ребра.
+ */
+export type Opening = {
+  id: string
+  edgeIndex: number
+  offsetMm: number
+  lengthMm: number
+}
+
 export type RoomState = {
   shapeType: RoomShapeType
   /** Room contour in mm, clockwise, closed implicitly */
@@ -67,21 +88,69 @@ export type RoomState = {
   /** Technological gap in mm */
   gapMm: number
   unit: 'mm' | 'm'
+  /** Внутренние препятствия (schema v2+) */
+  obstacles?: Obstacle[]
+  /** Проёмы / открытые края (schema v2+) */
+  openings?: Opening[]
 }
 
 export type LayoutRotation = 0 | 90
 
 export type LayoutStartPoint = 'corner' | 'center'
 
+/** Параметры, влияющие на раскладку и расчёт */
 export type LayoutSettings = {
   rotation: LayoutRotation
   offsetX: number
   offsetY: number
   startPoint: LayoutStartPoint
-  showGrid: boolean
+}
+
+/** Визуальные флаги — не должны запускать пересчёт геометрии */
+export type DisplaySettings = {
   showDimensions: boolean
   showCutVisualization: boolean
 }
+
+/**
+ * Формат layout в сохранённом проекте (schema v1+).
+ * Аддитивно совместим: showGrid устарел и игнорируется при загрузке.
+ */
+export type SavedLayoutSettings = LayoutSettings &
+  DisplaySettings & {
+    /** @deprecated не используется, сохраняется только при чтении старых проектов */
+    showGrid?: boolean
+  }
+
+export type CanvasInteractionMode = 'edit' | 'pan'
+
+/** Инструменты редактора контура (Фаза 6) */
+export type PolygonTool = 'select' | 'add-vertex' | 'remove-vertex' | 'obstacle' | 'opening'
+
+export type UiState = {
+  mobileStep: number
+  uiError: string | null
+  /** Режим взаимодействия со схемой */
+  canvasMode: CanvasInteractionMode
+  /** Полноэкранный режим рабочей области (не Fullscreen API) */
+  fullscreen: boolean
+  /**
+   * Пользователь задал размеры (поля, пресет или загрузка проекта).
+   * До этого стартовый контур не считается реальным расчётом.
+   */
+  roomConfigured: boolean
+  /** Инструмент редактора полигона */
+  polygonTool: PolygonTool
+  /** Привязка к 90° при перетаскивании вершин */
+  snapOrtho: boolean
+  /** Шаг сетки мм; 0 = выкл */
+  snapGridMm: number
+  /** Выбранное ребро контура */
+  selectedEdgeIndex: number | null
+  /** Выбранное препятствие */
+  selectedObstacleId: string | null
+}
+
 
 export type ModuleStatus = 'full' | 'cut' | 'outside'
 
@@ -116,6 +185,7 @@ export type CalculationWarningCode =
   | 'zero_area'
   | 'product_not_calculable'
   | 'too_many_modules'
+  | 'obstacle_invalid'
 
 export type CalculationWarning = {
   code: CalculationWarningCode
@@ -126,6 +196,8 @@ export type CalculationInput = {
   roomPolygon: Polygon
   workingPolygon: Polygon
   gapMm: number
+  obstacles?: Obstacle[]
+  openingsLengthMm?: number
   module: {
     widthMm: number
     lengthMm: number
@@ -145,6 +217,9 @@ export type CalculationInput = {
 export type CalculationResult = {
   roomAreaSqm: number
   workingAreaSqm: number
+  /** Площадь препятствий внутри зоны укладки */
+  obstaclesAreaSqm: number
+  openingsLengthMm: number
   fullModulesCount: number
   /** Сколько ячеек схемы с подрезкой (для отрисовки) */
   cutModulesCount: number
@@ -175,23 +250,6 @@ export type SavedProject = {
   productSourceId: string
   productSnapshot: ProductVariant
   room: RoomState
-  layout: LayoutSettings
+  layout: SavedLayoutSettings
   wastePercent: number
-}
-
-export type OptimizeLayoutInput = {
-  workingPolygon: Polygon
-  roomPolygon?: Polygon
-  gapMm?: number
-  moduleWidthMm: number
-  moduleLengthMm: number
-  rotation: LayoutRotation
-  startPoint: LayoutStartPoint
-}
-
-export type OptimizeLayoutResult = {
-  offsetX: number
-  offsetY: number
-  cutCount: number
-  totalCount: number
 }

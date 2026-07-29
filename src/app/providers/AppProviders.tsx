@@ -5,6 +5,7 @@ import { fetchCatalog } from '@/shared/api/catalog'
 import { APP_CONFIG } from '@/shared/config'
 import { useCalculatorStore } from '@/app/store/calculator-store'
 import type { ProductVariant } from '@/shared/types'
+import { ToastProvider } from '@/shared/ui/Toast'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -84,7 +85,9 @@ function findVariantById(
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <CatalogLoader>{children}</CatalogLoader>
+      <ToastProvider>
+        <CatalogLoader>{children}</CatalogLoader>
+      </ToastProvider>
     </QueryClientProvider>
   )
 }

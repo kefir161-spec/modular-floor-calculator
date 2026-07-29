@@ -1,0 +1,30 @@
+.tip {
+  position: absolute;
+  left: var(--pf-spacing-sm);
+  top: calc(var(--pf-spacing-sm) + 48px);
+  z-index: var(--pf-z-floating, 20);
+  display: flex;
+  align-items: center;
+  gap: var(--pf-spacing-sm);
+  max-width: min(360px, calc(100% - 24px));
+  padding: 8px 10px;
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-color-surface);
+  border: 1px solid var(--pf-color-border);
+  box-shadow: var(--pf-shadow-floating, 0 4px 16px rgb(16 24 40 / 12%));
+  pointer-events: auto;
+}
+
+.text {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--pf-color-text);
+}
+
+@media (max-width: 768px) {
+  .tip {
+    top: auto;
+    bottom: calc(var(--pf-spacing-sm) + 72px);
+  }
+}

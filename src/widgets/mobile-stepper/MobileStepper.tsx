@@ -1,11 +1,11 @@
 import { useCalculatorStore } from '@/app/store/calculator-store'
 import styles from './MobileStepper.module.scss'
 
-const STEPS = ['Товар', 'Помещение', 'Результат']
+const STEPS = ['Покрытие', 'Помещение', 'Результат']
 
 export function MobileStepper() {
-  const step = useCalculatorStore((s) => s.mobileStep)
-  const setStep = useCalculatorStore((s) => s.setMobileStep)
+  const step = useCalculatorStore((s) => s.ui.mobileStep)
+  const setUi = useCalculatorStore((s) => s.setUi)
 
   return (
     <nav className={styles.stepper} aria-label="Шаги калькулятора">
@@ -14,7 +14,7 @@ export function MobileStepper() {
           key={label}
           type="button"
           className={`${styles.step} ${i === step ? styles.active : ''}`}
-          onClick={() => setStep(i)}
+          onClick={() => setUi({ mobileStep: i })}
           aria-current={i === step ? 'step' : undefined}
         >
           <span className={styles.number}>{i + 1}</span>
@@ -23,9 +23,4 @@ export function MobileStepper() {
       ))}
     </nav>
   )
-}
-
-export function useIsMobile(): boolean {
-  if (typeof window === 'undefined') return false
-  return window.matchMedia('(max-width: 768px)').matches
 }

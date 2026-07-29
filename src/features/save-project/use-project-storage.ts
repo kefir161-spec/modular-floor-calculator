@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useCalculatorStore } from '@/app/store/calculator-store'
+import { useState, useCallback } from 'react'
+import { toSavedLayout, useCalculatorStore } from '@/app/store/calculator-store'
 import { APP_CONFIG } from '@/shared/config'
 import {
   createProjectId,
@@ -15,15 +15,19 @@ export function useProjectStorage() {
   const selectedVariant = useCalculatorStore((s) => s.selectedVariant)
   const room = useCalculatorStore((s) => s.room)
   const layout = useCalculatorStore((s) => s.layout)
+  const display = useCalculatorStore((s) => s.display)
   const wastePercent = useCalculatorStore((s) => s.wastePercent)
   const setRoom = useCalculatorStore((s) => s.setRoom)
-  const setLayout = useCalculatorStore((s) => s.setLayout)
+  const loadSavedLayout = useCalculatorStore((s) => s.loadSavedLayout)
+  const applyContour = useCalculatorStore((s) => s.applyContour)
   const setWastePercent = useCalculatorStore((s) => s.setWastePercent)
   const selectVariant = useCalculatorStore((s) => s.selectVariant)
+  const setUi = useCalculatorStore((s) => s.setUi)
   const catalog = useCalculatorStore((s) => s.catalog)
 
   const [projects, setProjects] = useState<SavedProject[]>(() => loadProjects())
   const [message, setMessage] = useState<string | null>(null)
+  const clearMessage = useCallback(() => setMessage(null), [])
 
   const buildProject = (): SavedProject | null => {
     if (!selectedVariant) return null
@@ -37,7 +41,7 @@ export function useProjectStorage() {
       productSourceId: selectedVariant.sourceId,
       productSnapshot: selectedVariant,
       room,
-      layout,
+      layout: toSavedLayout(layout, display),
       wastePercent,
     }
   }
@@ -68,9 +72,15 @@ export function useProjectStorage() {
     if (!project) return
 
     setProjectName(project.name)
-    setRoom(project.room)
-    setLayout(project.layout)
+    setRoom({
+      gapMm: project.room.gapMm,
+      unit: project.room.unit,
+      shapeType: project.room.shapeType,
+    })
+    applyContour(project.room.contour, project.room.shapeType)
+    loadSavedLayout(project.layout)
     setWastePercent(project.wastePercent)
+    setUi({ roomConfigured: true })
 
     const liveVariant = catalog?.families
       .flatMap((f) => f.variants)
@@ -90,6 +100,7 @@ export function useProjectStorage() {
     setProjectName,
     projects,
     message,
+    clearMessage,
     handleSave,
     handleLoad,
   }

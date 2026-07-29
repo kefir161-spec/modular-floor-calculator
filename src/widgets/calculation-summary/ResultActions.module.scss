@@ -1,0 +1,28 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-spacing-sm);
+  margin-top: var(--pf-spacing-md);
+  padding-top: var(--pf-spacing-md);
+  border-top: 1px solid var(--pf-color-border);
+}
+
+.heading {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--pf-color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pf-spacing-sm);
+}
+
+.back {
+  width: 100%;
+  min-height: 44px;
+}

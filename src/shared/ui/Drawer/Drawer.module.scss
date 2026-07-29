@@ -1,0 +1,124 @@
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: var(--pf-z-drawer, 40);
+  display: flex;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: rgb(16 24 40 / 40%);
+  cursor: pointer;
+  animation: pf-fade-in var(--pf-motion-panel, 280ms) var(--pf-ease-standard);
+
+  .root[data-reduced-motion] & {
+    animation: none;
+  }
+}
+
+.panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--pf-color-surface);
+  box-shadow: var(--pf-shadow-drawer, 0 8px 32px rgb(16 24 40 / 16%));
+  max-height: 100%;
+  outline: none;
+}
+
+.right {
+  margin-left: auto;
+  width: min(100%, 400px);
+  height: 100%;
+  animation: pf-slide-right var(--pf-motion-panel, 280ms) var(--pf-ease-standard);
+
+  .root[data-reduced-motion] & {
+    animation: none;
+  }
+}
+
+.left {
+  margin-right: auto;
+  width: min(100%, 400px);
+  height: 100%;
+  animation: pf-slide-left var(--pf-motion-panel, 280ms) var(--pf-ease-standard);
+
+  .root[data-reduced-motion] & {
+    animation: none;
+  }
+}
+
+.bottom {
+  margin-top: auto;
+  width: 100%;
+  max-height: min(85dvh, 640px);
+  border-radius: var(--pf-radius-lg) var(--pf-radius-lg) 0 0;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  animation: pf-slide-up var(--pf-motion-panel, 280ms) var(--pf-ease-standard);
+
+  .root[data-reduced-motion] & {
+    animation: none;
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pf-spacing-sm);
+  padding: var(--pf-spacing-md);
+  border-bottom: 1px solid var(--pf-color-border);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.body {
+  flex: 1;
+  overflow: auto;
+  padding: var(--pf-spacing-md);
+}
+
+@keyframes pf-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pf-slide-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes pf-slide-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes pf-slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}

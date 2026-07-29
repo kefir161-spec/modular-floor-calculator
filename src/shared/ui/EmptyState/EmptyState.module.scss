@@ -1,0 +1,33 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pf-spacing-sm);
+  padding: var(--pf-spacing-xl) var(--pf-spacing-md);
+  text-align: center;
+}
+
+.icon {
+  color: var(--pf-color-muted);
+  margin-bottom: var(--pf-spacing-xs);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--pf-color-text);
+}
+
+.description {
+  margin: 0;
+  max-width: 32ch;
+  color: var(--pf-color-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.action {
+  margin-top: var(--pf-spacing-sm);
+}

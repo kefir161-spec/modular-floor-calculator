@@ -1,0 +1,79 @@
+.card {
+  position: absolute;
+  right: var(--pf-spacing-md);
+  bottom: var(--pf-spacing-md);
+  z-index: var(--pf-z-sticky, 10);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(280px, calc(100% - 24px));
+  padding: var(--pf-spacing-md);
+  border-radius: var(--pf-radius-md);
+  background: rgb(255 255 255 / 96%);
+  border: 1px solid var(--pf-color-border);
+  box-shadow: var(--pf-shadow-floating, 0 4px 18px rgb(16 24 40 / 10%));
+  pointer-events: auto;
+  backdrop-filter: blur(6px);
+}
+
+.kicker {
+  margin: 0;
+  font-size: var(--pf-type-helper-size, 0.75rem);
+  color: var(--pf-color-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.total {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.totalValue {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--pf-type-result-value-size, 1.25rem);
+  font-weight: 700;
+  color: var(--pf-color-primary-text, var(--pf-color-text));
+  letter-spacing: -0.02em;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--pf-color-text-secondary, var(--pf-color-text));
+}
+
+.warn {
+  margin: 0;
+  font-size: var(--pf-type-warning-size, 0.85rem);
+  font-weight: 600;
+  color: var(--pf-color-warning);
+}
+
+.muted {
+  margin: 0;
+  color: var(--pf-color-muted);
+  font-size: 0.85rem;
+}
+
+.error {
+  margin: 0;
+  color: var(--pf-color-error);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .card {
+    position: static;
+    width: 100%;
+    box-shadow: none;
+    backdrop-filter: none;
+    background: var(--pf-color-surface);
+  }
+}

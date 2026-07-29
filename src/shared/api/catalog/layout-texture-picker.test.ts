@@ -82,4 +82,25 @@ describe('layout-texture-picker', () => {
     expect(new Set(urls).size).toBe(3)
     expect(urls).toEqual(['/upload/a/red.jpg', '/upload/a/green.jpg', '/upload/a/blue.jpg'])
   })
+
+  it('для БронеПласт с общим ракурсным [1] берёт фронтальное [0]', () => {
+    const variants = [
+      [
+        '/upload/resize_cache/iblock/16f/1200/16fe2da-front.jpg',
+        '/upload/iblock/01a/01ac2778-edge.jpg',
+      ],
+      [
+        '/upload/resize_cache/iblock/3c5/1200/3c5c45e9-front.jpg',
+        '/upload/iblock/01a/01ac2778-edge.jpg',
+      ],
+    ]
+    const shared = detectSharedSecondBasenames(variants)
+    const urls = variants.map((paths) => pickLayoutTexturePathForVariant(paths, shared))
+
+    expect(shared.has(basenameFromPath('/upload/iblock/01a/01ac2778-edge.jpg'))).toBe(true)
+    expect(urls).toEqual([
+      '/upload/resize_cache/iblock/16f/1200/16fe2da-front.jpg',
+      '/upload/resize_cache/iblock/3c5/1200/3c5c45e9-front.jpg',
+    ])
+  })
 })

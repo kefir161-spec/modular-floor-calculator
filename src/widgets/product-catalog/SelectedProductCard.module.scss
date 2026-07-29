@@ -1,0 +1,79 @@
+.card {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: var(--pf-spacing-sm);
+  align-items: start;
+}
+
+.media {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--pf-radius-sm);
+  overflow: hidden;
+  background: var(--pf-color-hover, #eef2f6);
+  border: 1px solid var(--pf-color-border);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.color {
+  margin: 0;
+  font-weight: 650;
+  font-size: 0.95rem;
+}
+
+.meta {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--pf-color-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.metaWarn {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--pf-color-warning);
+}
+
+.price {
+  margin: 0;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--pf-color-text-secondary, var(--pf-color-text));
+}
+
+.link {
+  font-size: 0.8rem;
+  color: var(--pf-color-primary-text, var(--pf-color-text));
+  width: fit-content;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-spacing-sm);
+}
+
+.emptyTitle {
+  margin: 0;
+  font-weight: 650;
+}
+
+.emptyHint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--pf-color-muted);
+}

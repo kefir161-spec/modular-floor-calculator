@@ -26,6 +26,16 @@ npm run test
 npm run typecheck
 ```
 
+## Текстуры раскладки
+
+```bash
+npm run build:layout-textures   # URL фронтальных фото по SKU
+npm run build:tile-crops        # области фото для укладки на пол
+npm run audit:tile-crops        # проверка всех цветов и серий
+```
+
+Подробности — [docs/layout-textures.md](docs/layout-textures.md).
+
 ## Конфигурация
 
 Файл `.env`:
@@ -45,7 +55,7 @@ npm run typecheck
 - Прямоугольное и сложное помещение (polygon)
 - Технологический зазор (polygon offset)
 - Раскладка модулей с классификацией full/cut
-- Поворот 0°/90°, смещение, оптимизация
+- Поворот 0°/90°, смещение раскладки
 - Расчёт площади, количества, запаса
 - Сохранение в localStorage
 - Экспорт PNG, PDF, печать
@@ -53,8 +63,11 @@ npm run typecheck
 
 ## Документация
 
+- [redesign-plan.md](docs/redesign-plan.md) — рабочий план переработки интерфейса
+- [ui-primitives.md](docs/ui-primitives.md) — UI-примитивы Фазы 1
 - [architecture.md](docs/architecture.md)
 - [catalog-adapter.md](docs/catalog-adapter.md)
+- [layout-textures.md](docs/layout-textures.md)
 - [calculation-rules.md](docs/calculation-rules.md)
 - [geometry.md](docs/geometry.md)
 - [local-storage-schema.md](docs/local-storage-schema.md)

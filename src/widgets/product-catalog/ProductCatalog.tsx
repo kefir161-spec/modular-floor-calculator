@@ -1,6 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useCalculatorStore } from '@/app/store/calculator-store'
 import { Input } from '@/shared/ui/Input/Input'
+import { Skeleton } from '@/shared/ui/Skeleton/Skeleton'
+import { ErrorState } from '@/shared/ui/ErrorState/ErrorState'
+import { Button } from '@/shared/ui/Button/Button'
 import {
   getFamilyDisplayName,
   getProductLineLabel,
@@ -10,17 +13,24 @@ import { formatUnitPrices, resolveModuleUnitPrices } from '@/shared/lib/pricing'
 import type { ProductFamily, ProductVariant } from '@/shared/types'
 import styles from './ProductCatalog.module.scss'
 
-export function ProductCatalog() {
+type Props = {
+  /** Вызывается после выбора варианта (закрыть drawer) */
+  onSelected?: () => void
+}
+
+export function ProductCatalog({ onSelected }: Props) {
   const catalog = useCalculatorStore((s) => s.catalog)
   const selectVariant = useCalculatorStore((s) => s.selectVariant)
   const current = useCalculatorStore((s) => s.selectedVariant)
   const catalogError = useCalculatorStore((s) => s.catalogError)
+  const setCatalogError = useCalculatorStore((s) => s.setCatalogError)
   const setMobileStep = useCalculatorStore((s) => s.setMobileStep)
 
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [expandedFamily, setExpandedFamily] = useState<string | null>(null)
   const [collapsedLines, setCollapsedLines] = useState<Record<string, boolean>>({})
+  const [initialized, setInitialized] = useState(false)
 
   const filtered = useMemo(() => {
     if (!catalog) return []
@@ -33,18 +43,33 @@ export function ProductCatalog() {
       return family.variants.some(
         (v) =>
           v.name.toLowerCase().includes(q) ||
-          v.id.includes(q) ||
-          v.colorName?.toLowerCase().includes(q),
+          (v.colorName?.toLowerCase().includes(q) ?? false),
       )
     })
   }, [catalog, search, category])
 
   const lineGroups = useMemo(() => groupFamiliesByLine(filtered), [filtered])
 
+  useEffect(() => {
+    if (!catalog || initialized) return
+    const firstLine = groupFamiliesByLine(catalog.families)[0]
+    if (firstLine) {
+      setCollapsedLines({ [firstLine.id]: false })
+    }
+    if (current) {
+      const family = catalog.families.find((f) =>
+        f.variants.some((v) => v.id === current.id),
+      )
+      if (family) setExpandedFamily(family.id)
+    }
+    setInitialized(true)
+  }, [catalog, current, initialized])
+
   const handleSelect = (variant: ProductVariant, familyId: string) => {
     selectVariant(variant)
     setExpandedFamily(familyId)
     setMobileStep(1)
+    onSelected?.()
   }
 
   const isLineCollapsed = (lineId: string) => collapsedLines[lineId] ?? true
@@ -55,43 +80,54 @@ export function ProductCatalog() {
 
   if (catalogError) {
     return (
-      <div role="alert" className={styles.error}>
-        {catalogError}
+      <ErrorState
+        title="Не удалось загрузить каталог"
+        description={catalogError}
+        action={
+          <Button
+            variant="primary"
+            onClick={() => {
+              setCatalogError(null)
+              window.location.reload()
+            }}
+          >
+            Обновить
+          </Button>
+        }
+      />
+    )
+  }
+
+  if (!catalog) {
+    return (
+      <div className={styles.loading}>
+        <Skeleton height={48} />
+        <Skeleton height={120} />
+        <Skeleton height={120} />
       </div>
     )
   }
 
-  if (!catalog) return null
-
   return (
     <div className={styles.catalog}>
-      {current ? (
-        <div className={styles.selectedBanner}>
-          <div className={styles.selectedThumb}>
-            {current.imageUrl ? (
-              <img src={current.imageUrl} alt="" loading="lazy" />
-            ) : null}
-          </div>
-          <div className={styles.selectedInfo}>
-            <strong>Выбрано</strong>
-            <span>{current.colorName ?? current.name}</span>
-            {current.lengthMm && current.widthMm ? (
-              <span>
-                {current.lengthMm}×{current.widthMm} мм
-              </span>
-            ) : null}
-          </div>
-        </div>
-      ) : (
-        <p className={styles.hint}>Нажмите цвет — помещение заполнится плиткой</p>
-      )}
-
-      <Input
-        label="Поиск"
-        placeholder="Линейка, название или ID"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+      <div className={styles.searchRow}>
+        <Input
+          label="Поиск"
+          placeholder="Название серии или цвет"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        {search ? (
+          <button
+            type="button"
+            className={styles.clearSearch}
+            onClick={() => setSearch('')}
+            aria-label="Очистить поиск"
+          >
+            Очистить
+          </button>
+        ) : null}
+      </div>
 
       <label className={styles.selectField}>
         <span>Категория</span>
@@ -118,7 +154,6 @@ export function ProductCatalog() {
               >
                 <span className={styles.lineTitle}>{group.label}</span>
                 <span className={styles.lineCount}>{group.families.length} серий</span>
-                <span className={styles.lineToggle}>{lineCollapsed ? '▸' : '▾'}</span>
               </button>
 
               {!lineCollapsed ? (
@@ -130,9 +165,7 @@ export function ProductCatalog() {
                       displayName={getFamilyDisplayName(family)}
                       expanded={expandedFamily === family.id}
                       onToggle={() =>
-                        setExpandedFamily((prev) =>
-                          prev === family.id ? null : family.id,
-                        )
+                        setExpandedFamily((prev) => (prev === family.id ? null : family.id))
                       }
                       selectedId={current?.id}
                       onSelect={(v) => handleSelect(v, family.id)}
@@ -146,7 +179,7 @@ export function ProductCatalog() {
       </div>
 
       {filtered.length === 0 ? (
-        <p className={styles.empty}>Товары не найдены</p>
+        <p className={styles.empty}>Ничего не найдено. Измените запрос или категорию.</p>
       ) : null}
     </div>
   )
@@ -168,13 +201,27 @@ function FamilyCard({
   onSelect: (v: ProductVariant) => void
 }) {
   const preview = family.variants[0]
-  const minPrice = Math.min(...family.variants.map((v) => v.price ?? Infinity))
-  const hasPrice = Number.isFinite(minPrice)
+  const priced = family.variants
+    .map((v) => v.price)
+    .filter((p): p is number => typeof p === 'number' && Number.isFinite(p))
+  const minPrice = priced.length > 0 ? Math.min(...priced) : undefined
+  const prices =
+    preview?.lengthMm && preview?.widthMm && minPrice !== undefined
+      ? resolveModuleUnitPrices({
+          price: minPrice,
+          priceUnit: preview.priceUnit,
+          widthMm: preview.widthMm,
+          lengthMm: preview.lengthMm,
+        })
+      : null
+  const fromPrice = prices ? formatUnitPrices(prices) : null
+
   const sizeLabel =
     preview?.lengthMm && preview?.widthMm
       ? `${preview.lengthMm}×${preview.widthMm} мм`
       : null
   const hasSelected = family.variants.some((v) => v.id === selectedId)
+  const selectedVariant = family.variants.find((v) => v.id === selectedId)
 
   return (
     <article
@@ -209,7 +256,7 @@ function FamilyCard({
         <div className={styles.familyInfo}>
           <p className={styles.familyName}>{displayName}</p>
           {sizeLabel ? <p className={styles.meta}>{sizeLabel}</p> : null}
-          {hasPrice ? <p className={styles.price}>от {minPrice} ₽</p> : null}
+          {fromPrice ? <p className={styles.price}>от {fromPrice}</p> : null}
           <p className={styles.variantsCount}>
             {family.variants.length} цветов · {expanded ? 'свернуть' : 'раскрыть'}
           </p>
@@ -219,14 +266,18 @@ function FamilyCard({
       <div className={styles.colorChips}>
         {family.variants.slice(0, expanded ? family.variants.length : 6).map((variant) => {
           const isSelected = selectedId === variant.id
-          const tooltip = getVariantTooltip(variant)
           return (
             <button
               key={variant.id}
               type="button"
               className={`${styles.colorChip} ${isSelected ? styles.colorChipActive : ''}`}
               disabled={!variant.calculable}
-              aria-label={tooltip}
+              aria-label={variant.colorName ?? variant.name}
+              title={
+                !variant.calculable
+                  ? variant.calculableReason ?? 'Нет размеров'
+                  : (variant.colorName ?? variant.name)
+              }
               onClick={() => onSelect(variant)}
             >
               <span className={styles.chipMedia}>
@@ -235,9 +286,6 @@ function FamilyCard({
                 ) : (
                   <span className={styles.chipFallback} />
                 )}
-              </span>
-              <span className={styles.chipTooltip} role="tooltip">
-                {tooltip}
               </span>
             </button>
           )
@@ -248,31 +296,43 @@ function FamilyCard({
           </button>
         ) : null}
       </div>
+
+      {expanded && selectedVariant ? (
+        <VariantDetails variant={selectedVariant} />
+      ) : expanded ? (
+        <p className={styles.pickHint}>Выберите цвет — характеристики появятся здесь</p>
+      ) : null}
     </article>
   )
 }
 
-function getVariantTooltip(variant: ProductVariant): string {
-  const name = variant.colorName ?? variant.name
-  if (!variant.calculable) return `${name} — нет размеров`
+function VariantDetails({ variant }: { variant: ProductVariant }) {
+  const priceLabel =
+    variant.lengthMm && variant.widthMm
+      ? formatUnitPrices(
+          resolveModuleUnitPrices({
+            price: variant.price,
+            priceUnit: variant.priceUnit,
+            widthMm: variant.widthMm,
+            lengthMm: variant.lengthMm,
+          }),
+        )
+      : null
 
-  const details: string[] = []
-  if (variant.thicknessMm) details.push(`${variant.thicknessMm} мм`)
-  if (variant.lengthMm && variant.widthMm) {
-    details.push(`${variant.lengthMm}×${variant.widthMm} мм`)
-  }
-
-  if (variant.lengthMm && variant.widthMm) {
-    const priceLabel = formatUnitPrices(
-      resolveModuleUnitPrices({
-        price: variant.price,
-        priceUnit: variant.priceUnit,
-        widthMm: variant.widthMm,
-        lengthMm: variant.lengthMm,
-      }),
-    )
-    if (priceLabel) details.push(priceLabel)
-  }
-
-  return details.length > 0 ? `${name}\n${details.join(' · ')}` : name
+  return (
+    <div className={styles.variantDetails}>
+      <strong>{variant.colorName ?? variant.name}</strong>
+      {variant.lengthMm && variant.widthMm ? (
+        <span>
+          {variant.lengthMm}×{variant.widthMm} мм
+          {variant.thicknessMm ? ` · толщина ${variant.thicknessMm} мм` : ''}
+        </span>
+      ) : (
+        <span className={styles.disabledReason}>
+          {variant.calculableReason ?? 'Нет размеров — расчёт недоступен'}
+        </span>
+      )}
+      {priceLabel ? <span>{priceLabel}</span> : null}
+    </div>
+  )
 }
