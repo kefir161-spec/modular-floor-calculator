@@ -158,4 +158,29 @@ describe('calculator store foundation', () => {
     })
     expect('showGrid' in saved).toBe(false)
   })
+
+  it('selectVariant на стартовом 5×4 м сразу даёт calculation (текстура)', () => {
+    const contour = createRectanglePolygon(5000, 4000)
+    useCalculatorStore.setState({
+      selectedVariant: null,
+      calculation: null,
+    })
+    // Как на чистом старте: валидный контур уже в store, без applyContour пользователем.
+    useCalculatorStore.getState().setRoom({
+      contour,
+      shapeType: 'rectangle',
+      gapMm: 5,
+      unit: 'm',
+      obstacles: [],
+      openings: [],
+    })
+    expect(useCalculatorStore.getState().calculation).toBeNull()
+
+    useCalculatorStore.getState().selectVariant(calculableVariant)
+
+    const { calculation, ui } = useCalculatorStore.getState()
+    expect(ui.roomConfigured).toBe(true)
+    expect(calculation).not.toBeNull()
+    expect(calculation!.modulesToPurchase).toBeGreaterThan(0)
+  })
 })

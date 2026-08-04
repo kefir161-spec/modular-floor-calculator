@@ -43,7 +43,8 @@ const defaultUi: UiState = {
   uiError: null,
   canvasMode: 'edit',
   fullscreen: false,
-  roomConfigured: false,
+  // Стартовый контур 5×4 м — валидное помещение; иначе selectVariant не даёт calculation/текстуру.
+  roomConfigured: true,
   polygonTool: 'select',
   snapOrtho: true,
   snapGridMm: 50,

@@ -192,7 +192,7 @@ export function RoomParamsPanel() {
           <label className={styles.field}>
             <span>Ширина ({unitLabel})</span>
             <DimInput
-              valueMm={roomConfigured ? widthMm : 0}
+              valueMm={widthMm}
               unit={room.unit}
               placeholder={room.unit === 'm' ? 'например 5' : 'например 5000'}
               aria-invalid={Boolean(widthError)}
@@ -208,7 +208,7 @@ export function RoomParamsPanel() {
           <label className={styles.field}>
             <span>Длина ({unitLabel})</span>
             <DimInput
-              valueMm={roomConfigured ? lengthMm : 0}
+              valueMm={lengthMm}
               unit={room.unit}
               placeholder={room.unit === 'm' ? 'например 4' : 'например 4000'}
               aria-invalid={Boolean(lengthError)}
@@ -284,8 +284,9 @@ export function RoomParamsPanel() {
           <>
             Площадь: <strong>{formatArea(polygonAreaSqm(room.contour))}</strong>
           </>
-        ) : null}
-        {!roomConfigured ? <>Укажите размеры или выберите пресет</> : null}
+        ) : (
+          <>Укажите размеры или выберите пресет</>
+        )}
       </p>
 
       <ObstaclesPanel />
