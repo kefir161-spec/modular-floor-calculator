@@ -1,4 +1,5 @@
 import { resolvePublicUrl } from '@/shared/lib/urls'
+import { fetchWithTimeout } from '@/shared/lib/fetch-with-timeout'
 import {
   detectSharedSecondBasenames,
   pickLayoutTexturePathForVariant,
@@ -16,7 +17,7 @@ let layoutTextureMapPromise: Promise<Record<string, string>> | null = null
 
 async function loadLayoutTextureMap(): Promise<Record<string, string>> {
   if (!layoutTextureMapPromise) {
-    layoutTextureMapPromise = fetch(resolvePublicUrl('data/layout-textures.json'))
+    layoutTextureMapPromise = fetchWithTimeout(resolvePublicUrl('data/layout-textures.json'))
       .then(async (response) => (response.ok ? response.json() : {}))
       .catch(() => ({}))
   }
@@ -45,7 +46,7 @@ export function resolveLayoutTextureUrlFromHtml(
 }
 
 async function fetchFamilyHtml(familyUrl: string): Promise<string> {
-  const response = await fetch(familyUrl, { credentials: 'omit' })
+  const response = await fetchWithTimeout(familyUrl, { credentials: 'omit' })
   if (!response.ok) {
     throw new Error(`Не удалось загрузить страницу товара: ${response.status}`)
   }
