@@ -22,12 +22,27 @@ import {
   getEdgeLengths,
   polygonAreaSqm,
 } from '@/shared/geometry/polygon'
-import type { Polygon, RoomShapeType } from '@/shared/types'
+import {
+  applyLParams,
+  applyNicheParams,
+  applyUParams,
+  extractLParams,
+  extractNicheParams,
+  extractUParams,
+  formatAngleDeg,
+  inferShapePreset,
+  interiorAnglesDeg,
+  isAxisAligned,
+  setInteriorAngle,
+  setRoomEdgeLength,
+} from '@/shared/geometry/room-contour'
+import type { Polygon, RoomShapePreset } from '@/shared/types'
+import { EdgingPanel } from './EdgingPanel'
 import { ObstaclesPanel } from './ObstaclesPanel'
 import { OpeningsPanel } from './OpeningsPanel'
 import styles from './RoomParamsPanel.module.scss'
 
-type ShapeId = 'rectangle' | 'l' | 'u' | 'niche' | 'custom'
+type ShapeId = RoomShapePreset
 
 const SHAPE_OPTIONS: {
   id: ShapeId
@@ -48,10 +63,12 @@ const AREA_PRESETS: { label: string; widthMm: number; lengthMm: number }[] = [
   { label: '6×6 м', widthMm: 6000, lengthMm: 6000 },
 ]
 
-function detectShape(shapeType: RoomShapeType, contour: Polygon): ShapeId {
-  if (shapeType === 'rectangle' && contour.length === 4) return 'rectangle'
-  if (shapeType === 'polygon') return 'custom'
-  return 'rectangle'
+function parseAngleDeg(raw: string): number | null {
+  const trimmed = raw.trim().replace(/\s/g, '').replace(',', '.')
+  if (trimmed === '' || trimmed === '.' || trimmed === '-' || trimmed === '+') return null
+  const val = Number(trimmed)
+  if (!Number.isFinite(val) || val <= 0 || val >= 360) return null
+  return val
 }
 
 export function RoomParamsPanel() {
@@ -61,7 +78,7 @@ export function RoomParamsPanel() {
   const workingContour = useCalculatorStore((s) => s.workingContour)
   const roomConfigured = useCalculatorStore((s) => s.ui.roomConfigured)
 
-  const [shape, setShape] = useState<ShapeId>(() => detectShape(room.shapeType, room.contour))
+  const shape = room.shapePreset ?? inferShapePreset(room.contour, room.shapeType)
   const widthMm = room.contour[1]?.x ?? 0
   const lengthMm = room.contour[2]?.y ?? 0
 
@@ -74,6 +91,11 @@ export function RoomParamsPanel() {
     () => edgeLengths.map((_, i) => String.fromCharCode(65 + i)),
     [edgeLengths],
   )
+  const angles = useMemo(() => interiorAnglesDeg(room.contour), [room.contour])
+  const ortho = isAxisAligned(room.contour)
+  const lParams = shape === 'l' ? extractLParams(room.contour) : null
+  const uParams = shape === 'u' ? extractUParams(room.contour) : null
+  const nicheParams = shape === 'niche' ? extractNicheParams(room.contour) : null
 
   const commitDimension = (axis: 'width' | 'length', raw: string) => {
     const trimmed = raw.trim()
@@ -90,61 +112,68 @@ export function RoomParamsPanel() {
     }
     if (axis === 'width') {
       setWidthError(null)
-      applyContour(createRectanglePolygon(mm, lengthMm || mm), 'rectangle')
-      setShape('rectangle')
+      applyContour(createRectanglePolygon(mm, lengthMm || mm), 'rectangle', {
+        shapePreset: 'rectangle',
+      })
     } else {
       setLengthError(null)
-      applyContour(createRectanglePolygon(widthMm || mm, mm), 'rectangle')
-      setShape('rectangle')
+      applyContour(createRectanglePolygon(widthMm || mm, mm), 'rectangle', {
+        shapePreset: 'rectangle',
+      })
     }
   }
 
   const applyShape = (id: ShapeId) => {
-    setShape(id)
     if (id === 'rectangle') {
       const w = widthMm > 0 ? widthMm : 4000
       const l = lengthMm > 0 ? lengthMm : 3000
-      applyContour(createRectanglePolygon(w, l), 'rectangle', { resetExtras: true })
+      applyContour(createRectanglePolygon(w, l), 'rectangle', {
+        resetExtras: true,
+        shapePreset: 'rectangle',
+      })
       return
     }
     if (id === 'l') {
-      applyContour(createLShapePolygon(5000, 4000, 3000, 2500), 'polygon', { resetExtras: true })
+      applyContour(createLShapePolygon(5000, 4000, 3000, 2500), 'polygon', {
+        resetExtras: true,
+        shapePreset: 'l',
+      })
       return
     }
     if (id === 'u') {
       applyContour(createUShapePolygon(6000, 5000, 3000, 3000, 1000), 'polygon', {
         resetExtras: true,
+        shapePreset: 'u',
       })
       return
     }
     if (id === 'niche') {
       applyContour(createNichePolygon(5000, 4000, 1500, 1000, 2000), 'polygon', {
         resetExtras: true,
+        shapePreset: 'niche',
       })
       return
     }
-    if (room.shapeType === 'rectangle') {
-      applyContour(room.contour, 'polygon')
-    }
+    applyContour(room.contour, 'polygon', { shapePreset: 'custom' })
+  }
+
+  const commitPolygon = (next: Polygon | null, preset: ShapeId = shape) => {
+    if (!next) return
+    applyContour(next, 'polygon', { shapePreset: preset })
   }
 
   const commitEdgeLength = (index: number, raw: string) => {
     const mm = parseDimInput(raw, room.unit)
     if (mm === null) return
-    const contour = room.contour
-    const a = contour[index]
-    const b = contour[(index + 1) % contour.length]
-    const dx = b.x - a.x
-    const dy = b.y - a.y
-    const len = Math.hypot(dx, dy) || 1
-    const scale = mm / len
-    const next = contour.map((p, i) => {
-      if (i === (index + 1) % contour.length) {
-        return { x: a.x + dx * scale, y: a.y + dy * scale }
-      }
-      return p
-    })
-    applyContour(next, 'polygon')
+    commitPolygon(setRoomEdgeLength(room.contour, index, mm))
+  }
+
+  const commitAngle = (index: number, raw: string) => {
+    const deg = parseAngleDeg(raw)
+    if (deg === null) return
+    const next = setInteriorAngle(room.contour, index, deg)
+    if (!next) return
+    commitPolygon(next, isAxisAligned(next) ? shape : 'custom')
   }
 
   return (
@@ -180,9 +209,8 @@ export function RoomParamsPanel() {
                   applyContour(
                     createRectanglePolygon(preset.widthMm, preset.lengthMm),
                     'rectangle',
-                    { resetExtras: true },
+                    { resetExtras: true, shapePreset: 'rectangle' },
                   )
-                  setShape('rectangle')
                 }}
               >
                 {preset.label}
@@ -224,19 +252,225 @@ export function RoomParamsPanel() {
         </div>
       ) : (
         <div className={styles.edges}>
+          {lParams ? (
+            <div className={styles.offsets}>
+              <p className={styles.offsetsTitle}>Габарит и уступы</p>
+              <label className={styles.field}>
+                <span>Ширина ({unitLabel})</span>
+                <DimInput
+                  valueMm={lParams.outerW}
+                  unit={room.unit}
+                  onCommit={(raw) => {
+                    const mm = parseDimInput(raw, room.unit)
+                    if (mm === null) return
+                    commitPolygon(applyLParams(room.contour, { outerW: mm }), 'l')
+                  }}
+                />
+              </label>
+              <label className={styles.field}>
+                <span>Длина ({unitLabel})</span>
+                <DimInput
+                  valueMm={lParams.outerH}
+                  unit={room.unit}
+                  onCommit={(raw) => {
+                    const mm = parseDimInput(raw, room.unit)
+                    if (mm === null) return
+                    commitPolygon(applyLParams(room.contour, { outerH: mm }), 'l')
+                  }}
+                />
+              </label>
+              <label className={styles.field}>
+                <span>Уступ по ширине ({unitLabel})</span>
+                <DimInput
+                  valueMm={lParams.innerW}
+                  unit={room.unit}
+                  onCommit={(raw) => {
+                    const mm = parseDimInput(raw, room.unit)
+                    if (mm === null) return
+                    commitPolygon(applyLParams(room.contour, { innerW: mm }), 'l')
+                  }}
+                />
+                <span className={styles.edgeHint}>От внутреннего угла до внешней стены.</span>
+              </label>
+              <label className={styles.field}>
+                <span>Уступ по длине ({unitLabel})</span>
+                <DimInput
+                  valueMm={lParams.outerH - lParams.innerH}
+                  unit={room.unit}
+                  onCommit={(raw) => {
+                    const mm = parseDimInput(raw, room.unit)
+                    if (mm === null) return
+                    commitPolygon(applyLParams(room.contour, { innerH: lParams.outerH - mm }), 'l')
+                  }}
+                />
+                <span className={styles.edgeHint}>От внутреннего угла до внешней стены.</span>
+              </label>
+            </div>
+          ) : null}
+
+          {uParams ? (
+            <div className={styles.offsets}>
+              <p className={styles.offsetsTitle}>Габарит и вырез</p>
+              <label className={styles.field}>
+                <span>Ширина ({unitLabel})</span>
+                <DimInput
+                  valueMm={uParams.outerW}
+                  unit={room.unit}
+                  onCommit={(raw) => {
+                    const mm = parseDimInput(raw, room.unit)
+                    if (mm === null) return
+                    commitPolygon(applyUParams(room.contour, { outerW: mm }), 'u')
+                  }}
+                />
+              </label>
+              <label className={styles.field}>
+                <span>Длина ({unitLabel})</span>
+                <DimInput
+                  valueMm={uParams.outerH}
+                  unit={room.unit}
+                  onCommit={(raw) => {
+                    const mm = parseDimInput(raw, room.unit)
+                    if (mm === null) return
+                    commitPolygon(applyUParams(room.contour, { outerH: mm }), 'u')
+                  }}
+                />
+              </label>
+              <label className={styles.field}>
+                <span>Левая ножка ({unitLabel})</span>
+                <DimInput
+                  valueMm={uParams.leftLeg}
+                  unit={room.unit}
+                  onCommit={(raw) => {
+                    const mm = parseDimInput(raw, room.unit)
+                    if (mm === null) return
+                    commitPolygon(applyUParams(room.contour, { leftLeg: mm }), 'u')
+                  }}
+                />
+              </label>
+              <label className={styles.field}>
+                <span>Правая ножка ({unitLabel})</span>
+                <DimInput
+                  valueMm={uParams.rightLeg}
+                  unit={room.unit}
+                  onCommit={(raw) => {
+                    const mm = parseDimInput(raw, room.unit)
+                    if (mm === null) return
+                    commitPolygon(applyUParams(room.contour, { rightLeg: mm }), 'u')
+                  }}
+                />
+              </label>
+              <label className={styles.field}>
+                <span>Глубина выреза ({unitLabel})</span>
+                <DimInput
+                  valueMm={uParams.openingHeight}
+                  unit={room.unit}
+                  onCommit={(raw) => {
+                    const mm = parseDimInput(raw, room.unit)
+                    if (mm === null) return
+                    commitPolygon(applyUParams(room.contour, { openingHeight: mm }), 'u')
+                  }}
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {nicheParams ? (
+            <div className={styles.offsets}>
+              <p className={styles.offsetsTitle}>Габарит и ниша</p>
+              <label className={styles.field}>
+                <span>Ширина ({unitLabel})</span>
+                <DimInput
+                  valueMm={nicheParams.outerW}
+                  unit={room.unit}
+                  onCommit={(raw) => {
+                    const mm = parseDimInput(raw, room.unit)
+                    if (mm === null) return
+                    commitPolygon(applyNicheParams(room.contour, { outerW: mm }), 'niche')
+                  }}
+                />
+              </label>
+              <label className={styles.field}>
+                <span>Длина ({unitLabel})</span>
+                <DimInput
+                  valueMm={nicheParams.outerH}
+                  unit={room.unit}
+                  onCommit={(raw) => {
+                    const mm = parseDimInput(raw, room.unit)
+                    if (mm === null) return
+                    commitPolygon(applyNicheParams(room.contour, { outerH: mm }), 'niche')
+                  }}
+                />
+              </label>
+              <label className={styles.field}>
+                <span>Ширина ниши ({unitLabel})</span>
+                <DimInput
+                  valueMm={nicheParams.nicheW}
+                  unit={room.unit}
+                  onCommit={(raw) => {
+                    const mm = parseDimInput(raw, room.unit)
+                    if (mm === null) return
+                    commitPolygon(applyNicheParams(room.contour, { nicheW: mm }), 'niche')
+                  }}
+                />
+              </label>
+              <label className={styles.field}>
+                <span>Глубина ниши ({unitLabel})</span>
+                <DimInput
+                  valueMm={nicheParams.nicheH}
+                  unit={room.unit}
+                  onCommit={(raw) => {
+                    const mm = parseDimInput(raw, room.unit)
+                    if (mm === null) return
+                    commitPolygon(applyNicheParams(room.contour, { nicheH: mm }), 'niche')
+                  }}
+                />
+              </label>
+              <label className={styles.field}>
+                <span>Отступ ниши слева ({unitLabel})</span>
+                <DimInput
+                  valueMm={nicheParams.nicheX}
+                  unit={room.unit}
+                  onCommit={(raw) => {
+                    const mm = parseDimInput(raw, room.unit)
+                    if (mm === null) return
+                    commitPolygon(applyNicheParams(room.contour, { nicheX: mm }), 'niche')
+                  }}
+                />
+              </label>
+            </div>
+          ) : null}
+
+          <p className={styles.formHint}>
+            {ortho
+              ? 'Сторона сдвигает всю стену — прямые углы не плывут. Угол 90° или 270° можно изменить, если комната не прямоугольная.'
+              : 'Длины и углы задают обход контура. Последняя сторона замыкает фигуру и может пересчитаться.'}
+          </p>
+
           {edgeLengths.map((len, i) => (
-            <label key={`edge-${i}`} className={styles.field}>
-              <span>
-                Сторона {edgeLabels[i]} ({unitLabel})
-              </span>
-              <DimInput
-                key={`edge-input-${i}-${room.unit}`}
-                valueMm={len}
-                unit={room.unit}
-                onCommit={(raw) => commitEdgeLength(i, raw)}
-              />
-              <span className={styles.edgeHint}>{formatLength(len, 'mm')}</span>
-            </label>
+            <div key={`edge-${i}`} className={styles.edgeRow}>
+              <label className={styles.field}>
+                <span>
+                  Сторона {edgeLabels[i]} ({unitLabel})
+                </span>
+                <DimInput
+                  key={`edge-input-${i}-${room.unit}`}
+                  valueMm={len}
+                  unit={room.unit}
+                  onCommit={(raw) => commitEdgeLength(i, raw)}
+                />
+                <span className={styles.edgeHint}>{formatLength(len, 'mm')}</span>
+              </label>
+              <label className={styles.field}>
+                <span>Угол {edgeLabels[i]} (°)</span>
+                <DimInput
+                  key={`angle-input-${i}`}
+                  valueMm={Math.round(angles[i])}
+                  unit="mm"
+                  onCommit={(raw) => commitAngle(i, raw)}
+                />
+                <span className={styles.edgeHint}>{formatAngleDeg(angles[i])}</span>
+              </label>
+            </div>
           ))}
           {shape === 'custom' ? (
             <Button
@@ -244,6 +478,7 @@ export function RoomParamsPanel() {
               onClick={() =>
                 applyContour(createLShapePolygon(5000, 4000, 3000, 2500), 'polygon', {
                   resetExtras: true,
+                  shapePreset: 'l',
                 })
               }
             >
@@ -291,6 +526,7 @@ export function RoomParamsPanel() {
 
       <ObstaclesPanel />
       <OpeningsPanel />
+      <EdgingPanel />
 
       {!workingContour.success ? (
         <p role="alert" className={styles.alert}>

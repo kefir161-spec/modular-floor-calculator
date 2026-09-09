@@ -2,23 +2,32 @@ import { create } from 'zustand'
 import type {
   CalculationResult,
   CatalogData,
+  ColorOverrides,
   DisplaySettings,
+  EdgingSettings,
   LayoutSettings,
   Obstacle,
   Opening,
   Polygon,
   ProductVariant,
+  RoomShapePreset,
   RoomState,
   SavedLayoutSettings,
   UiState,
 } from '@/shared/types'
 import { APP_CONFIG } from '@/shared/config'
+import { DEFAULT_EDGING, EDGING_FAMILY_SLUG, isEdgingThickness } from '@/shared/config/edging'
+import { extractFamilySlug } from '@/shared/api/catalog/normalize'
+import { workingInsetMm } from '@/shared/geometry/edging'
+import { applyPaintOverride, cloneColorOverrides, colorOverridesEqual, findFamilyByVariant, paintPalette } from '@/shared/lib/paint'
 import { createRectanglePolygon, isPolygonValid, offsetPolygonInward } from '@/shared/geometry/polygon'
+import { inferShapePreset } from '@/shared/geometry/room-contour'
 import { totalOpeningsLengthMm } from '@/shared/geometry/obstacles'
 import { calculate } from '@/entities/calculation/calculate'
 
 const defaultRoom: RoomState = {
   shapeType: 'rectangle',
+  shapePreset: 'rectangle',
   contour: createRectanglePolygon(5000, 4000),
   gapMm: APP_CONFIG.defaultGapMm,
   unit: 'm',
@@ -56,6 +65,7 @@ const defaultUi: UiState = {
 export type RoomHistoryEntry = {
   contour: Polygon
   shapeType: RoomState['shapeType']
+  shapePreset?: RoomShapePreset
   obstacles: Obstacle[]
   openings: Opening[]
 }
@@ -63,6 +73,7 @@ export type RoomHistoryEntry = {
 export type ApplyContourOptions = {
   /** Сбросить препятствия и проёмы (смена пресета формы / площади). */
   resetExtras?: boolean
+  shapePreset?: RoomShapePreset
 }
 
 type CalculatorState = {
@@ -74,6 +85,11 @@ type CalculatorState = {
   layout: LayoutSettings
   display: DisplaySettings
   wastePercent: number
+  edging: EdgingSettings
+  colorOverrides: ColorOverrides
+  paintColorId: string | null
+  paintHistory: ColorOverrides[]
+  paintHistoryIndex: number
   calculation: CalculationResult | null
   projectName: string
   ui: UiState
@@ -97,6 +113,13 @@ type CalculatorState = {
   setLayout: (layout: Partial<LayoutSettings>) => void
   setDisplay: (display: Partial<DisplaySettings>) => void
   setWastePercent: (value: number) => void
+  setEdging: (edging: Partial<EdgingSettings>) => void
+  setPaintColorId: (id: string | null) => void
+  paintModule: (key: string) => void
+  commitPaintStroke: () => void
+  undoPaint: () => void
+  redoPaint: () => void
+  loadColorOverrides: (overrides: ColorOverrides) => void
   setProjectName: (name: string) => void
   setUi: (ui: Partial<UiState>) => void
   /** @deprecated используйте setUi({ mobileStep }) */
@@ -116,13 +139,32 @@ type CalculatorState = {
   removeOpening: (id: string) => void
 }
 
+/** Окантовка доступна только для серии Optima Duos. */
+export function isEdgingSupported(variant: ProductVariant | null): boolean {
+  if (!variant) return false
+  return extractFamilySlug(variant.url) === EDGING_FAMILY_SLUG
+}
+
 /**
  * Размеры помещения — от стены до стены.
- * Зона укладки = контур с учётом технологического зазора у стен (inward offset).
+ * Зона укладки = контур с учётом технологического зазора у стен (inward offset)
+ * и ширины окантовки, если она включена.
  * @see https://plastfactor.com/installation-tips/
  */
-function computeWorkingContour(room: RoomState) {
-  return offsetPolygonInward(room.contour, room.gapMm)
+function computeWorkingContour(room: RoomState, edging: EdgingSettings) {
+  return offsetPolygonInward(room.contour, workingInsetMm(room.gapMm, edging))
+}
+
+function emptyPaintState(): {
+  colorOverrides: ColorOverrides
+  paintHistory: ColorOverrides[]
+  paintHistoryIndex: number
+} {
+  return {
+    colorOverrides: {},
+    paintHistory: [{}],
+    paintHistoryIndex: 0,
+  }
 }
 
 function runCalculation(
@@ -132,6 +174,9 @@ function runCalculation(
   layout: LayoutSettings,
   wastePercent: number,
   roomConfigured: boolean,
+  edging: EdgingSettings,
+  catalog: CatalogData | null,
+  colorOverrides: ColorOverrides,
 ): CalculationResult | null {
   if (!roomConfigured) return null
   if (!variant?.calculable || !variant.lengthMm || !variant.widthMm) return null
@@ -139,6 +184,9 @@ function runCalculation(
   if (!isPolygonValid(room.contour)) return null
 
   const openings = room.openings ?? []
+  const family = catalog ? findFamilyByVariant(catalog.families, variant) : undefined
+  const palette = family ? paintPalette(family, variant) : []
+
   return calculate({
     roomPolygon: room.contour,
     workingPolygon: workingResult.polygon,
@@ -146,11 +194,13 @@ function runCalculation(
     obstacles: room.obstacles ?? [],
     openingsLengthMm: totalOpeningsLengthMm(openings),
     module: {
+      id: variant.id,
       widthMm: variant.widthMm,
       lengthMm: variant.lengthMm,
       weightKg: variant.weightKg,
       price: variant.price,
       priceUnit: variant.priceUnit,
+      colorName: variant.colorName,
     },
     layout: {
       rotation: layout.rotation,
@@ -159,6 +209,14 @@ function runCalculation(
       startPoint: layout.startPoint,
     },
     wastePercent,
+    edging: isEdgingSupported(variant) ? edging : undefined,
+    colorOverrides,
+    paletteVariants: palette.map((item) => ({
+      id: item.id,
+      colorName: item.colorName,
+      price: item.price,
+      priceUnit: item.priceUnit,
+    })),
   })
 }
 
@@ -178,6 +236,7 @@ function snapshotRoom(room: RoomState): RoomHistoryEntry {
   return {
     contour: cloneContour(room.contour),
     shapeType: room.shapeType,
+    shapePreset: room.shapePreset,
     obstacles: cloneObstacles(room.obstacles),
     openings: cloneOpenings(room.openings),
   }
@@ -188,6 +247,7 @@ function applySnapshot(room: RoomState, snap: RoomHistoryEntry): RoomState {
     ...room,
     contour: cloneContour(snap.contour),
     shapeType: snap.shapeType,
+    shapePreset: snap.shapePreset,
     obstacles: cloneObstacles(snap.obstacles),
     openings: cloneOpenings(snap.openings),
   }
@@ -231,6 +291,7 @@ function openingsEqual(a: Opening[], b: Opening[]): boolean {
 function snapshotsEqual(a: RoomHistoryEntry, b: RoomHistoryEntry): boolean {
   return (
     a.shapeType === b.shapeType &&
+    a.shapePreset === b.shapePreset &&
     contoursEqual(a.contour, b.contour) &&
     obstaclesEqual(a.obstacles, b.obstacles) &&
     openingsEqual(a.openings, b.openings)
@@ -261,7 +322,7 @@ function filterOpeningsForContour(openings: Opening[], contour: Polygon): Openin
 }
 
 export const useCalculatorStore = create<CalculatorState>((set, get) => {
-  const working = computeWorkingContour(defaultRoom)
+  const working = computeWorkingContour(defaultRoom, DEFAULT_EDGING)
   const initialSnap = snapshotRoom(defaultRoom)
 
   return {
@@ -273,6 +334,9 @@ export const useCalculatorStore = create<CalculatorState>((set, get) => {
     layout: defaultLayout,
     display: defaultDisplay,
     wastePercent: APP_CONFIG.defaultWastePercent,
+    edging: DEFAULT_EDGING,
+    ...emptyPaintState(),
+    paintColorId: null,
     calculation: null,
     projectName: 'Новый проект',
     ui: defaultUi,
@@ -289,14 +353,35 @@ export const useCalculatorStore = create<CalculatorState>((set, get) => {
         offsetX: 0,
         offsetY: 0,
       }
+      // Кант доступен только у Optima Duos, а его толщина по умолчанию — от плитки.
+      const supported = isEdgingSupported(variant)
+      const edging: EdgingSettings = {
+        enabled: supported && state.edging.enabled,
+        thicknessMm: isEdgingThickness(variant?.thicknessMm)
+          ? variant.thicknessMm
+          : state.edging.thicknessMm,
+      }
 
-      set({ selectedVariant: variant, layout })
+      set({
+        selectedVariant: variant,
+        layout,
+        edging,
+        workingContour: computeWorkingContour(state.room, edging),
+        paintColorId: variant?.id ?? null,
+        ...emptyPaintState(),
+      })
+      get().recalculate()
+    },
+    setEdging: (partial) => {
+      const state = get()
+      const edging = { ...state.edging, ...partial }
+      set({ edging, workingContour: computeWorkingContour(state.room, edging) })
       get().recalculate()
     },
     setRoom: (partial) => {
       const prev = get().room
       const room = { ...prev, ...partial }
-      const workingContour = computeWorkingContour(room)
+      const workingContour = computeWorkingContour(room, get().edging)
       const contourChanged =
         partial.contour !== undefined && !contoursEqual(prev.contour, room.contour)
       const markConfigured = contourChanged
@@ -319,8 +404,15 @@ export const useCalculatorStore = create<CalculatorState>((set, get) => {
       get().recalculate()
     },
     setContour: (contour) => {
-      const room = { ...get().room, contour, shapeType: 'polygon' as const }
-      const workingContour = computeWorkingContour(room)
+      const prev = get().room
+      const shapePreset = inferShapePreset(contour, undefined, prev.shapePreset)
+      const room = {
+        ...prev,
+        contour,
+        shapeType: (shapePreset === 'rectangle' ? 'rectangle' : 'polygon') as RoomState['shapeType'],
+        shapePreset,
+      }
+      const workingContour = computeWorkingContour(room, get().edging)
       set({
         room,
         workingContour,
@@ -335,14 +427,20 @@ export const useCalculatorStore = create<CalculatorState>((set, get) => {
         ? []
         : filterOpeningsForContour(prev.openings ?? [], contour)
       const obstacles = reset ? [] : cloneObstacles(prev.obstacles)
+      const shapePreset =
+        options?.shapePreset ??
+        (shapeType === 'rectangle'
+          ? 'rectangle'
+          : inferShapePreset(contour, shapeType, prev.shapePreset))
       const room: RoomState = {
         ...prev,
         contour,
         shapeType,
+        shapePreset,
         obstacles,
         openings,
       }
-      const workingContour = computeWorkingContour(room)
+      const workingContour = computeWorkingContour(room, get().edging)
       const history = pushRoomHistory(get().roomHistory, get().roomHistoryIndex, snapshotRoom(room))
       set({
         room,
@@ -361,8 +459,14 @@ export const useCalculatorStore = create<CalculatorState>((set, get) => {
       set(pushRoomHistory(roomHistory, roomHistoryIndex, snapshotRoom(room)))
     },
     setLayout: (partial) => {
-      const layout = { ...get().layout, ...partial }
-      set({ layout })
+      const prev = get().layout
+      const layout = { ...prev, ...partial }
+      const gridChanged =
+        partial.rotation !== undefined ||
+        partial.offsetX !== undefined ||
+        partial.offsetY !== undefined ||
+        partial.startPoint !== undefined
+      set({ layout, ...(gridChanged ? emptyPaintState() : {}) })
       get().recalculate()
     },
     setDisplay: (partial) => {
@@ -378,7 +482,17 @@ export const useCalculatorStore = create<CalculatorState>((set, get) => {
     setMobileStep: (step) => set({ ui: { ...get().ui, mobileStep: step } }),
     setUiError: (error) => set({ ui: { ...get().ui, uiError: error } }),
     recalculate: () => {
-      const { room, workingContour, selectedVariant, layout, wastePercent, ui } = get()
+      const {
+        room,
+        workingContour,
+        selectedVariant,
+        layout,
+        wastePercent,
+        ui,
+        edging,
+        catalog,
+        colorOverrides,
+      } = get()
       const calculation = runCalculation(
         room,
         workingContour,
@@ -386,11 +500,14 @@ export const useCalculatorStore = create<CalculatorState>((set, get) => {
         layout,
         wastePercent,
         ui.roomConfigured,
+        edging,
+        catalog,
+        colorOverrides,
       )
       set({ calculation })
     },
     resetLayout: () => {
-      set({ layout: { ...defaultLayout } })
+      set({ layout: { ...defaultLayout }, ...emptyPaintState() })
       get().recalculate()
     },
     undoContour: () => {
@@ -398,7 +515,7 @@ export const useCalculatorStore = create<CalculatorState>((set, get) => {
       if (roomHistoryIndex <= 0) return
       const newIndex = roomHistoryIndex - 1
       const nextRoom = applySnapshot(room, roomHistory[newIndex])
-      const workingContour = computeWorkingContour(nextRoom)
+      const workingContour = computeWorkingContour(nextRoom, get().edging)
       set({
         room: nextRoom,
         workingContour,
@@ -416,7 +533,7 @@ export const useCalculatorStore = create<CalculatorState>((set, get) => {
       if (roomHistoryIndex >= roomHistory.length - 1) return
       const newIndex = roomHistoryIndex + 1
       const nextRoom = applySnapshot(room, roomHistory[newIndex])
-      const workingContour = computeWorkingContour(nextRoom)
+      const workingContour = computeWorkingContour(nextRoom, get().edging)
       set({
         room: nextRoom,
         workingContour,
@@ -546,6 +663,57 @@ export const useCalculatorStore = create<CalculatorState>((set, get) => {
       set({ room: nextRoom, ...history })
       get().recalculate()
     },
+    setPaintColorId: (id) => set({ paintColorId: id }),
+    paintModule: (key) => {
+      const { selectedVariant, paintColorId, colorOverrides } = get()
+      if (!selectedVariant || !paintColorId) return
+      const next = applyPaintOverride(colorOverrides, key, paintColorId, selectedVariant.id)
+      if (next === colorOverrides) return
+      set({ colorOverrides: next })
+    },
+    commitPaintStroke: () => {
+      const { colorOverrides, paintHistory, paintHistoryIndex } = get()
+      const current = cloneColorOverrides(colorOverrides)
+      const last = paintHistory[paintHistoryIndex] ?? {}
+      if (colorOverridesEqual(current, last)) return
+      const trimmed = paintHistory.slice(0, paintHistoryIndex + 1)
+      trimmed.push(current)
+      while (trimmed.length > APP_CONFIG.contourHistoryMax) trimmed.shift()
+      set({
+        paintHistory: trimmed,
+        paintHistoryIndex: trimmed.length - 1,
+      })
+      get().recalculate()
+    },
+    undoPaint: () => {
+      const { paintHistory, paintHistoryIndex } = get()
+      if (paintHistoryIndex <= 0) return
+      const nextIndex = paintHistoryIndex - 1
+      set({
+        paintHistoryIndex: nextIndex,
+        colorOverrides: cloneColorOverrides(paintHistory[nextIndex] ?? {}),
+      })
+      get().recalculate()
+    },
+    redoPaint: () => {
+      const { paintHistory, paintHistoryIndex } = get()
+      if (paintHistoryIndex >= paintHistory.length - 1) return
+      const nextIndex = paintHistoryIndex + 1
+      set({
+        paintHistoryIndex: nextIndex,
+        colorOverrides: cloneColorOverrides(paintHistory[nextIndex] ?? {}),
+      })
+      get().recalculate()
+    },
+    loadColorOverrides: (overrides) => {
+      const cloned = cloneColorOverrides(overrides)
+      set({
+        colorOverrides: cloned,
+        paintHistory: [cloned],
+        paintHistoryIndex: 0,
+      })
+      get().recalculate()
+    },
   }
 })
 
@@ -555,6 +723,14 @@ export function selectCanUndo(state: CalculatorState): boolean {
 
 export function selectCanRedo(state: CalculatorState): boolean {
   return state.roomHistoryIndex < state.roomHistory.length - 1
+}
+
+export function selectCanUndoPaint(state: CalculatorState): boolean {
+  return state.paintHistoryIndex > 0
+}
+
+export function selectCanRedoPaint(state: CalculatorState): boolean {
+  return state.paintHistoryIndex < state.paintHistory.length - 1
 }
 
 /** Собрать layout для сохранения проекта */

@@ -71,6 +71,34 @@ describe('polygon geometry', () => {
     const l = createLShapePolygon(5000, 4000, 3000, 2500)
     expect(isPolygonValid(l)).toBe(true)
   })
+
+  it('строит зазор, если на прямой стене лишняя вершина (угол 180°)', () => {
+    const room = [
+      { x: 0, y: 0 },
+      { x: 2000, y: 0 },
+      { x: 2000, y: 1000 },
+      { x: 800, y: 1000 },
+      { x: 0, y: 1000 },
+    ]
+    const result = offsetPolygonInward(room, 5)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(polygonArea(result.polygon)).toBeCloseTo((2000 - 10) * (1000 - 10), 0)
+    }
+  })
+
+  it('строит зазор для комнаты со скосом и коллинеарным замыканием', () => {
+    const room = [
+      { x: 0, y: 0 },
+      { x: 1180, y: 0 },
+      { x: 1180, y: 800 },
+      { x: 930, y: 1000 },
+      { x: 365, y: 1000 },
+      { x: 0, y: 1000 },
+    ]
+    const result = offsetPolygonInward(room, 5)
+    expect(result.success).toBe(true)
+  })
 })
 
 describe('layout generation', () => {

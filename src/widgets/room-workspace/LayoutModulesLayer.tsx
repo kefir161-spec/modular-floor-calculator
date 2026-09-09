@@ -1,7 +1,9 @@
 import { Group, Line, Rect } from 'react-konva'
-import type { LayoutModule, Polygon } from '@/shared/types'
+import type { ColorOverrides, LayoutModule, Polygon } from '@/shared/types'
 import type { LayoutPhotoCrop, TilePatternSource } from '@/shared/lib/tile-texture'
+import type { PaletteTileMap } from '@/shared/lib/use-tile-image'
 import { differencePolygons } from '@/shared/geometry/layout'
+import { modulePaintKey } from '@/shared/lib/paint'
 import {
   CUT_VISUAL,
   getClippedRenderRect,
@@ -22,6 +24,20 @@ type Props = {
   moduleWidthMm: number
   moduleLengthMm: number
   centerModuleId?: string
+  colorOverrides?: ColorOverrides
+  paletteTextures?: PaletteTileMap
+}
+
+function resolveModuleTexture(
+  mod: LayoutModule,
+  fallback: { image: TilePatternSource; crop: LayoutPhotoCrop },
+  colorOverrides?: ColorOverrides,
+  paletteTextures?: PaletteTileMap,
+): { image: TilePatternSource; crop: LayoutPhotoCrop } {
+  const paintedId = colorOverrides?.[modulePaintKey(mod)]
+  if (!paintedId || !paletteTextures) return fallback
+  const painted = paletteTextures[paintedId]
+  return painted ? { image: painted.image, crop: painted.crop } : fallback
 }
 
 function polygonPoints(poly: Polygon): number[] {
@@ -239,8 +255,11 @@ export function LayoutModulesLayer({
   moduleWidthMm,
   moduleLengthMm,
   centerModuleId,
+  colorOverrides,
+  paletteTextures,
 }: Props) {
   const visible = modules.filter((m) => m.status !== 'outside')
+  const fallback = { image: tileImage, crop: tileCrop }
   const hasFullModules = visible.some((m) => m.status === 'full')
   const useFloorTexture = hasFullModules
 
@@ -254,20 +273,24 @@ export function LayoutModulesLayer({
           moduleWidthMm={moduleWidthMm}
         />
       ) : null}
-      {visible.map((mod) => (
-        <ModuleShape
-          key={mod.id}
-          mod={mod}
-          scale={scale}
-          tileImage={tileImage}
-          tileCrop={tileCrop}
-          moduleWidthMm={moduleWidthMm}
-          moduleLengthMm={moduleLengthMm}
-          showCut={showCutVisualization}
-          isCenter={mod.id === centerModuleId}
-          useFloorTexture={useFloorTexture}
-        />
-      ))}
+      {visible.map((mod) => {
+        const painted = Boolean(colorOverrides?.[modulePaintKey(mod)])
+        const texture = resolveModuleTexture(mod, fallback, colorOverrides, paletteTextures)
+        return (
+          <ModuleShape
+            key={mod.id}
+            mod={mod}
+            scale={scale}
+            tileImage={texture.image}
+            tileCrop={texture.crop}
+            moduleWidthMm={moduleWidthMm}
+            moduleLengthMm={moduleLengthMm}
+            showCut={showCutVisualization}
+            isCenter={mod.id === centerModuleId}
+            useFloorTexture={useFloorTexture && !painted}
+          />
+        )
+      })}
     </Group>
   )
 }

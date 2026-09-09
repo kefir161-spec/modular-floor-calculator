@@ -2,6 +2,7 @@ import { Tooltip } from '@/shared/ui/Tooltip/Tooltip'
 import { IconButton } from '@/shared/ui/IconButton/IconButton'
 import {
   AddVertexIcon,
+  BrushIcon,
   GridSnapIcon,
   ObstacleIcon,
   OpeningIcon,
@@ -12,7 +13,7 @@ import {
 import type { PolygonTool } from '@/shared/types'
 import styles from './PolygonToolsBar.module.scss'
 
-const TOOLS: { id: PolygonTool; label: string; icon: typeof SelectCursorIcon }[] = [
+const CONTOUR_TOOLS: { id: PolygonTool; label: string; icon: typeof SelectCursorIcon }[] = [
   { id: 'select', label: 'Выбор', icon: SelectCursorIcon },
   { id: 'add-vertex', label: 'Добавить вершину', icon: AddVertexIcon },
   { id: 'remove-vertex', label: 'Удалить вершину', icon: RemoveVertexIcon },
@@ -27,6 +28,7 @@ type Props = {
   onSnapOrthoChange: (value: boolean) => void
   snapGridMm: number
   onSnapGridChange: (mm: number) => void
+  showBrush?: boolean
 }
 
 export function PolygonToolsBar({
@@ -36,12 +38,13 @@ export function PolygonToolsBar({
   onSnapOrthoChange,
   snapGridMm,
   onSnapGridChange,
+  showBrush = false,
 }: Props) {
   const gridOn = snapGridMm > 0
 
   return (
     <div className={styles.toolbar} role="toolbar" aria-label="Инструменты контура">
-      {TOOLS.map(({ id, label, icon: Icon }) => (
+      {CONTOUR_TOOLS.map(({ id, label, icon: Icon }) => (
         <Tooltip key={id} content={label}>
           <IconButton
             label={label}
@@ -54,6 +57,20 @@ export function PolygonToolsBar({
           </IconButton>
         </Tooltip>
       ))}
+
+      {showBrush ? (
+        <Tooltip content="Кисть">
+          <IconButton
+            label="Кисть"
+            variant={tool === 'brush' ? 'secondary' : 'ghost'}
+            size="sm"
+            aria-pressed={tool === 'brush'}
+            onClick={() => onToolChange('brush')}
+          >
+            <BrushIcon />
+          </IconButton>
+        </Tooltip>
+      ) : null}
 
       <span className={styles.sep} aria-hidden />
 

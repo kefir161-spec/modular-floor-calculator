@@ -60,6 +60,13 @@ export function StickySummary({ onExportPng, onExportPdf, onPrint }: Props) {
           <strong className={styles.totalValue}>{calculation.modulesWithWasteCount}</strong>{' '}
           плиток
         </p>
+        {calculation.colorBreakdown && calculation.colorBreakdown.length > 0 ? (
+          <p className={styles.meta}>
+            {calculation.colorBreakdown
+              .map((row) => `${row.colorName ?? 'цвет'} ${row.modulesWithWasteCount}`)
+              .join(', ')}
+          </p>
+        ) : null}
         <div className={styles.meta}>
           <span>{formatArea(calculation.workingAreaSqm)}</span>
           {calculation.totalCost !== undefined ? (
@@ -72,7 +79,7 @@ export function StickySummary({ onExportPng, onExportPdf, onPrint }: Props) {
         {calculation.warnings.length > 0 ? (
           <p className={styles.warn}>{calculation.warnings[0]?.message}</p>
         ) : null}
-        <Button variant="secondary" onClick={() => setOpen(true)}>
+        <Button variant="secondary" className={styles.details} onClick={() => setOpen(true)}>
           Подробнее
         </Button>
       </aside>

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { createNichePolygon, createRectanglePolygon } from '@/shared/geometry/polygon'
-import { getEdgeLabelPlacement } from './edge-dimension-label'
+import { createLShapePolygon, createNichePolygon, createRectanglePolygon } from '@/shared/geometry/polygon'
+import { getEdgeLabelPlacement, getVertexAnglePlacement } from './edge-dimension-label'
 import { pointInPolygon } from '@/shared/geometry/polygon'
 
 describe('getEdgeLabelPlacement', () => {
@@ -46,5 +46,17 @@ describe('getEdgeLabelPlacement', () => {
     const p = getEdgeLabelPlacement(room, 0, { scale, withLetter: true })!
     expect(p.fontSize * scale).toBeCloseTo(13, 5)
     expect(p.boxHeight * scale).toBeGreaterThan(18)
+  })
+})
+
+describe('getVertexAnglePlacement', () => {
+  it('для Г-образной подписи углов внутри помещения', () => {
+    const room = createLShapePolygon(5000, 4000, 3000, 2500)
+    for (let i = 0; i < room.length; i++) {
+      const p = getVertexAnglePlacement(room, i, { scale: 0.05 })
+      expect(p).not.toBeNull()
+      expect(pointInPolygon({ x: p!.x, y: p!.y }, room)).toBe(true)
+      expect(p!.text).toMatch(/°$/)
+    }
   })
 })

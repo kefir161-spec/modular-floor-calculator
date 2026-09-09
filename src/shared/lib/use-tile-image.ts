@@ -128,3 +128,68 @@ export function useTileImage(
 
   return { image: loaded.image, crop, status }
 }
+
+export type PaletteTileTexture = {
+  image: TilePatternSource
+  crop: LayoutPhotoCrop
+}
+
+export type PaletteTileMap = Record<string, PaletteTileTexture>
+
+function cropFromLoaded(
+  loaded: LoadedSource,
+  moduleWidthMm?: number,
+  moduleLengthMm?: number,
+): LayoutPhotoCrop | null {
+  const options: LayoutPhotoCropOptions = { moduleWidthMm, moduleLengthMm }
+  const stored = loaded.storedCrop
+    ? resolveStoredCrop(loaded.image, loaded.storedCrop, options)
+    : null
+  return stored ?? extractLayoutPhotoCrop(loaded.image, options)
+}
+
+/** Текстуры цветов палитры. Не вызывать useTileImage в цикле рендера. */
+export function usePaletteTileImages(
+  variants: Array<{ id: string; url: string; imageUrl?: string }>,
+  moduleWidthMm?: number,
+  moduleLengthMm?: number,
+): PaletteTileMap {
+  const [loaded, setLoaded] = useState<Record<string, LoadedSource>>({})
+  const signature = variants.map((item) => `${item.id}:${item.url}:${item.imageUrl ?? ''}`).join('|')
+
+  useEffect(() => {
+    if (variants.length === 0) {
+      setLoaded((prev) => (Object.keys(prev).length === 0 ? prev : {}))
+      return
+    }
+
+    const controller = new AbortController()
+
+    void Promise.all(
+      variants.map((item) =>
+        item.url ? loadTexture(item.url, item.id, item.imageUrl, controller.signal) : Promise.resolve(null),
+      ),
+    ).then((results) => {
+      if (controller.signal.aborted) return
+      const next: Record<string, LoadedSource> = {}
+      for (const src of results) {
+        if (src) next[src.variantId] = src
+      }
+      setLoaded(next)
+    })
+
+    return () => controller.abort()
+    // signature отражает состав палитры; сам массив на каждом рендере новый
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signature])
+
+  return useMemo(() => {
+    const map: PaletteTileMap = {}
+    for (const [id, src] of Object.entries(loaded)) {
+      const crop = cropFromLoaded(src, moduleWidthMm, moduleLengthMm)
+      if (!crop) continue
+      map[id] = { image: src.image, crop }
+    }
+    return map
+  }, [loaded, moduleWidthMm, moduleLengthMm])
+}

@@ -1,5 +1,6 @@
 import type { Point, Polygon } from '@/shared/types'
 import { formatLength, pointInPolygon } from '@/shared/geometry/polygon'
+import { formatAngleDeg, vertexInteriorDeg } from '@/shared/geometry/room-contour'
 
 export type EdgeLabelPlacement = {
   /** Центр подписи в мм комнаты */
@@ -80,5 +81,63 @@ export function edgeLabelTopLeft(placement: EdgeLabelPlacement): Point {
   return {
     x: placement.x - placement.boxWidth / 2,
     y: placement.y - placement.boxHeight / 2,
+  }
+}
+
+function unit(dx: number, dy: number): Point {
+  const len = Math.hypot(dx, dy)
+  if (len < 1e-6) return { x: 0, y: 0 }
+  return { x: dx / len, y: dy / len }
+}
+
+/** Подпись внутреннего угла у вершины — внутри помещения. */
+export function getVertexAnglePlacement(
+  polygon: Polygon,
+  vertexIndex: number,
+  options: { scale: number },
+): EdgeLabelPlacement | null {
+  const n = polygon.length
+  if (n < 3) return null
+  const i = ((vertexIndex % n) + n) % n
+  const prev = polygon[(i - 1 + n) % n]
+  const curr = polygon[i]
+  const next = polygon[(i + 1) % n]
+  const deg = vertexInteriorDeg(prev, curr, next)
+  if (!Number.isFinite(deg)) return null
+
+  const a = unit(prev.x - curr.x, prev.y - curr.y)
+  const b = unit(next.x - curr.x, next.y - curr.y)
+  let bx = a.x + b.x
+  let by = a.y + b.y
+  let blen = Math.hypot(bx, by)
+  if (blen < 1e-6) {
+    bx = -a.y
+    by = a.x
+    blen = Math.hypot(bx, by)
+  }
+  bx /= blen
+  by /= blen
+  const probe = 30
+  if (!pointInPolygon({ x: curr.x + bx * probe, y: curr.y + by * probe }, polygon)) {
+    bx = -bx
+    by = -by
+  }
+
+  const text = formatAngleDeg(deg)
+  const scale = Math.max(options.scale, 0.001)
+  const fontSize = 11 / scale
+  const pad = 4 / scale
+  const charW = fontSize * 0.62
+  const boxWidth = text.length * charW + pad * 2
+  const boxHeight = fontSize + pad * 2
+  const offset = 22 / scale + boxHeight / 2
+
+  return {
+    x: curr.x + bx * offset,
+    y: curr.y + by * offset,
+    text,
+    fontSize,
+    boxWidth,
+    boxHeight,
   }
 }

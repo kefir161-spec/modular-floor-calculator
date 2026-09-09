@@ -1,7 +1,59 @@
 import { useCalculatorStore } from '@/app/store/calculator-store'
+import { totalOrderCost } from '@/entities/calculation/edging'
+import { EDGING_COLOR_LABELS } from '@/shared/config/edging'
 import { formatArea, formatLength } from '@/shared/geometry/polygon'
 import { formatRub } from '@/shared/lib/pricing'
+import type { EdgingCornerType, EdgingResult, EdgingStraightType } from '@/shared/types'
 import styles from './CalculationSummary.module.scss'
+
+const STRAIGHT_TYPES: EdgingStraightType[] = [1, 2]
+const CORNER_TYPES: EdgingCornerType[] = [1, 2, 3, 4]
+
+function EdgingSpec({ edging }: { edging: EdgingResult }) {
+  const colorLabel = EDGING_COLOR_LABELS[edging.colorGroup]
+
+  return (
+    <section className={styles.block}>
+      <h3 className={styles.heading}>
+        Окантовка {edging.thicknessMm} мм, {colorLabel}
+      </h3>
+      <dl className={styles.stats}>
+        {STRAIGHT_TYPES.map((type) => (
+          <div key={`straight-${type}`}>
+            <dt>Прямой кант №{type}</dt>
+            <dd>{edging.straightCounts[type]} шт</dd>
+          </div>
+        ))}
+        {CORNER_TYPES.map((type) => (
+          <div key={`corner-${type}`}>
+            <dt>Угловой кант №{type}</dt>
+            <dd>{edging.cornerCounts[type]} шт</dd>
+          </div>
+        ))}
+        <div>
+          <dt>Всего элементов</dt>
+          <dd>{edging.straightTotal + edging.cornerTotal} шт</dd>
+        </div>
+        <div>
+          <dt>Периметр окантовки</dt>
+          <dd>{formatLength(edging.perimeterMm, 'mm')}</dd>
+        </div>
+        <div>
+          <dt>Цена прямого</dt>
+          <dd>{formatRub(edging.straightPrice)}/шт</dd>
+        </div>
+        <div>
+          <dt>Цена углового</dt>
+          <dd>{formatRub(edging.cornerPrice)}/шт</dd>
+        </div>
+        <div>
+          <dt>Стоимость окантовки</dt>
+          <dd>{formatRub(edging.totalCost)}</dd>
+        </div>
+      </dl>
+    </section>
+  )
+}
 
 export function CalculationSummary() {
   const calculation = useCalculatorStore((s) => s.calculation)
@@ -23,6 +75,8 @@ export function CalculationSummary() {
   if (!calculation) {
     return <p className={styles.empty}>Недостаточно данных для расчёта</p>
   }
+
+  const orderTotal = totalOrderCost(calculation)
 
   return (
     <div className={styles.summary} aria-live="polite">
@@ -131,6 +185,38 @@ export function CalculationSummary() {
           ) : null}
         </dl>
       </section>
+
+      {calculation.colorBreakdown && calculation.colorBreakdown.length > 0 ? (
+        <section className={styles.block}>
+          <h3 className={styles.heading}>По цветам</h3>
+          <dl className={styles.stats}>
+            {calculation.colorBreakdown.map((row) => (
+              <div key={row.variantId}>
+                <dt>{row.colorName ?? row.variantId}</dt>
+                <dd>
+                  {row.modulesWithWasteCount} шт
+                  {row.totalCost !== undefined ? ` · ${formatRub(row.totalCost)}` : ''}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ) : null}
+
+      {calculation.edging ? (
+        <>
+          <EdgingSpec edging={calculation.edging} />
+          {orderTotal !== undefined ? (
+            <section className={styles.block}>
+              <h3 className={styles.heading}>Всего по заказу</h3>
+              <p className={styles.totalLine}>
+                <strong className={styles.totalValue}>{formatRub(orderTotal)}</strong>
+                <span className={styles.wasteNote}> покрытие и окантовка</span>
+              </p>
+            </section>
+          ) : null}
+        </>
+      ) : null}
 
       {calculation.warnings.length > 0 ? (
         <section className={styles.block}>

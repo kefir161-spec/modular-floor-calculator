@@ -1,13 +1,18 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
+  isEdgingSupported,
   selectCanRedo,
+  selectCanRedoPaint,
   selectCanUndo,
+  selectCanUndoPaint,
   toSavedLayout,
   useCalculatorStore,
 } from '@/app/store/calculator-store'
 import { createRectanglePolygon } from '@/shared/geometry/polygon'
 import { createDefaultObstacle } from '@/shared/geometry/obstacles'
-import type { ProductVariant } from '@/shared/types'
+import { DEFAULT_EDGING, EDGING_GEOMETRY } from '@/shared/config/edging'
+import { modulePaintKey } from '@/shared/lib/paint'
+import type { CatalogData, ProductVariant } from '@/shared/types'
 
 const calculableVariant: ProductVariant = {
   id: 'test-1',
@@ -20,6 +25,23 @@ const calculableVariant: ProductVariant = {
   lengthMm: 500,
   widthMm: 500,
   weightKg: 1,
+  rawParams: {},
+  calculable: true,
+}
+
+const optimaDuosVariant: ProductVariant = {
+  id: 'optima-9',
+  sourceId: 'optima-9',
+  url: 'https://plastfactor.com/catalog/detail/optima-duos/?oID=5200',
+  name: 'Optima Duos 9 мм',
+  available: true,
+  price: 300,
+  priceUnit: 'piece',
+  lengthMm: 250,
+  widthMm: 250,
+  thicknessMm: 9,
+  weightKg: 0.6,
+  colorName: 'Черный',
   rawParams: {},
   calculable: true,
 }
@@ -40,6 +62,7 @@ function resetStore() {
       showCutVisualization: true,
     },
     wastePercent: 5,
+    edging: { ...DEFAULT_EDGING },
     ui: {
       mobileStep: 0,
       uiError: null,
@@ -69,6 +92,11 @@ function resetStore() {
       },
     ],
     roomHistoryIndex: 0,
+    colorOverrides: {},
+    paintHistory: [{}],
+    paintHistoryIndex: 0,
+    paintColorId: null,
+    catalog: null,
   })
   useCalculatorStore.getState().recalculate()
 }
@@ -184,3 +212,167 @@ describe('calculator store foundation', () => {
     expect(calculation!.modulesToPurchase).toBeGreaterThan(0)
   })
 })
+
+describe('окантовка в store', () => {
+  beforeEach(() => {
+    resetStore()
+    // 3100×2100 при зазоре 5 мм и канте 45 мм даёт поле ровно 3000×2000
+    useCalculatorStore.getState().setRoom({
+      contour: createRectanglePolygon(3100, 2100),
+      shapeType: 'rectangle',
+    })
+  })
+
+  it('доступна только для Optima Duos', () => {
+    expect(isEdgingSupported(optimaDuosVariant)).toBe(true)
+    expect(isEdgingSupported(calculableVariant)).toBe(false)
+    expect(isEdgingSupported(null)).toBe(false)
+  })
+
+  it('у другой серии кант не попадает в расчёт даже при включённом флаге', () => {
+    useCalculatorStore.getState().selectVariant(calculableVariant)
+    useCalculatorStore.getState().setEdging({ enabled: true })
+
+    expect(useCalculatorStore.getState().calculation?.edging).toBeUndefined()
+  })
+
+  it('включение канта сжимает зону укладки на 45 мм и даёт спецификацию', () => {
+    useCalculatorStore.getState().selectVariant(optimaDuosVariant)
+    const withoutEdging = useCalculatorStore.getState().calculation!
+
+    useCalculatorStore.getState().setEdging({ enabled: true })
+    const withEdging = useCalculatorStore.getState().calculation!
+
+    const inset = EDGING_GEOMETRY.widthMm
+    expect(withEdging.workingAreaSqm).toBeCloseTo(
+      ((3100 - 2 * (5 + inset)) * (2100 - 2 * (5 + inset))) / 1_000_000,
+      6,
+    )
+    expect(withEdging.workingAreaSqm).toBeLessThan(withoutEdging.workingAreaSqm)
+    expect(withEdging.modulesToPurchase).toBeLessThanOrEqual(withoutEdging.modulesToPurchase)
+
+    expect(withEdging.edging).toMatchObject({
+      thicknessMm: 9,
+      straightCounts: { 1: 18, 2: 18 },
+      cornerCounts: { 1: 1, 2: 1, 3: 1, 4: 1 },
+      trimmedStraightCount: 0,
+    })
+  })
+
+  it('выключение канта возвращает исходную зону укладки', () => {
+    useCalculatorStore.getState().selectVariant(optimaDuosVariant)
+    const before = useCalculatorStore.getState().calculation!.workingAreaSqm
+
+    useCalculatorStore.getState().setEdging({ enabled: true })
+    useCalculatorStore.getState().setEdging({ enabled: false })
+
+    const after = useCalculatorStore.getState().calculation!
+    expect(after.workingAreaSqm).toBeCloseTo(before, 6)
+    expect(after.edging).toBeUndefined()
+  })
+
+  it('выбор товара подставляет толщину канта и сбрасывает его для чужой серии', () => {
+    useCalculatorStore.getState().selectVariant({ ...optimaDuosVariant, thicknessMm: 16 })
+    expect(useCalculatorStore.getState().edging.thicknessMm).toBe(16)
+
+    useCalculatorStore.getState().setEdging({ enabled: true })
+    useCalculatorStore.getState().selectVariant(calculableVariant)
+
+    expect(useCalculatorStore.getState().edging.enabled).toBe(false)
+  })
+
+  it('толщина канта меняется вручную, цена зависит от цвета плитки', () => {
+    useCalculatorStore.getState().selectVariant(optimaDuosVariant)
+    useCalculatorStore.getState().setEdging({ enabled: true })
+    const black = useCalculatorStore.getState().calculation!.edging!
+
+    expect(black.colorGroup).toBe('black')
+    expect(black.straightPrice).toBe(66)
+    expect(black.cornerPrice).toBe(136)
+
+    useCalculatorStore.getState().setEdging({ thicknessMm: 16 })
+    const stillBlack = useCalculatorStore.getState().calculation!.edging!
+    expect(stillBlack.thicknessMm).toBe(16)
+    expect(stillBlack.totalCost).toBe(black.totalCost)
+
+    useCalculatorStore.getState().selectVariant({
+      ...optimaDuosVariant,
+      colorName: 'Серый',
+    })
+    useCalculatorStore.getState().setEdging({ enabled: true, thicknessMm: 9 })
+    const colored = useCalculatorStore.getState().calculation!.edging!
+
+    expect(colored.colorGroup).toBe('colored')
+    expect(colored.straightPrice).toBe(74)
+    expect(colored.cornerPrice).toBe(148)
+    expect(colored.totalCost).toBeGreaterThan(black.totalCost)
+  })
+})
+
+describe('calculator store paint', () => {
+  beforeEach(() => {
+    resetStore()
+  })
+
+  const grayVariant: ProductVariant = {
+    ...calculableVariant,
+    id: 'test-2',
+    sourceId: 'test-2',
+    colorName: 'Серый',
+  }
+
+  const twoColorCatalog: CatalogData = {
+    categories: [],
+    families: [
+      {
+        id: 'fam',
+        slug: 'fam',
+        name: 'Fam',
+        categoryId: 'c',
+        categoryName: 'c',
+        variants: [calculableVariant, grayVariant],
+      },
+    ],
+  }
+
+  it('один мазок — один undo, смена сетки и товара сбрасывает покраску', () => {
+    useCalculatorStore.setState({ catalog: twoColorCatalog })
+    useCalculatorStore.getState().selectVariant(calculableVariant)
+
+    const modules = useCalculatorStore
+      .getState()
+      .calculation!.layout.modules.filter((mod) => mod.status !== 'outside')
+    expect(modules.length).toBeGreaterThan(1)
+
+    const keyA = modulePaintKey(modules[0])
+    const keyB = modulePaintKey(modules[1])
+
+    useCalculatorStore.getState().setPaintColorId(grayVariant.id)
+    useCalculatorStore.getState().paintModule(keyA)
+    useCalculatorStore.getState().paintModule(keyB)
+    expect(selectCanUndoPaint(useCalculatorStore.getState())).toBe(false)
+
+    useCalculatorStore.getState().commitPaintStroke()
+    expect(selectCanUndoPaint(useCalculatorStore.getState())).toBe(true)
+    expect(useCalculatorStore.getState().colorOverrides[keyA]).toBe(grayVariant.id)
+    expect(useCalculatorStore.getState().calculation?.colorBreakdown?.length).toBeGreaterThan(0)
+
+    useCalculatorStore.getState().undoPaint()
+    expect(useCalculatorStore.getState().colorOverrides).toEqual({})
+    expect(selectCanRedoPaint(useCalculatorStore.getState())).toBe(true)
+
+    useCalculatorStore.getState().redoPaint()
+    expect(useCalculatorStore.getState().colorOverrides[keyB]).toBe(grayVariant.id)
+
+    useCalculatorStore.getState().setLayout({ rotation: 90 })
+    expect(useCalculatorStore.getState().colorOverrides).toEqual({})
+    expect(selectCanUndoPaint(useCalculatorStore.getState())).toBe(false)
+
+    useCalculatorStore.getState().setPaintColorId(grayVariant.id)
+    useCalculatorStore.getState().paintModule(keyA)
+    useCalculatorStore.getState().commitPaintStroke()
+    useCalculatorStore.getState().selectVariant(grayVariant)
+    expect(useCalculatorStore.getState().colorOverrides).toEqual({})
+  })
+})
+

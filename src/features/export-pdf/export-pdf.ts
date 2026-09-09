@@ -2,6 +2,8 @@ import { jsPDF } from 'jspdf'
 import type { CalculationResult, ProductVariant, RoomState } from '@/shared/types'
 import { formatArea, formatLength } from '@/shared/geometry/polygon'
 import { totalOpeningsLengthMm } from '@/shared/geometry/obstacles'
+import { totalOrderCost } from '@/entities/calculation/edging'
+import { EDGING_COLOR_LABELS } from '@/shared/config/edging'
 import { resolvePublicUrl } from '@/shared/lib/urls'
 
 export type PdfExportInput = {
@@ -134,6 +136,37 @@ export async function exportToPdf(input: PdfExportInput): Promise<void> {
   }
   if (calculation.totalWeightKg !== undefined) {
     line(`Вес: ${calculation.totalWeightKg.toFixed(1)} кг`)
+  }
+
+  if (calculation.colorBreakdown && calculation.colorBreakdown.length > 0) {
+    y += 2
+    line('По цветам', 13)
+    for (const row of calculation.colorBreakdown) {
+      const cost =
+        row.totalCost !== undefined ? `, ${row.totalCost.toLocaleString('ru-RU')} ₽` : ''
+      line(`${row.colorName ?? row.variantId}: ${row.modulesWithWasteCount} шт${cost}`)
+    }
+  }
+
+  const edging = calculation.edging
+  if (edging) {
+    y += 2
+    line(`Окантовка ${edging.thicknessMm} мм, ${EDGING_COLOR_LABELS[edging.colorGroup]}`, 13)
+    line(`Прямой кант: ${edging.straightPrice.toLocaleString('ru-RU')} ₽/шт`)
+    line(`Угловой кант: ${edging.cornerPrice.toLocaleString('ru-RU')} ₽/шт`)
+    for (const type of [1, 2] as const) {
+      line(`Прямой кант №${type}: ${edging.straightCounts[type]} шт`)
+    }
+    for (const type of [1, 2, 3, 4] as const) {
+      line(`Угловой кант №${type}: ${edging.cornerCounts[type]} шт`)
+    }
+    line(`Всего элементов: ${edging.straightTotal + edging.cornerTotal} шт`)
+    line(`Периметр окантовки: ${formatLength(edging.perimeterMm, 'mm')}`)
+    line(`Стоимость окантовки: ${edging.totalCost.toLocaleString('ru-RU')} ₽`)
+    const orderTotal = totalOrderCost(calculation)
+    if (orderTotal !== undefined) {
+      line(`Всего по заказу: ${orderTotal.toLocaleString('ru-RU')} ₽`)
+    }
   }
 
   if (calculation.warnings.length) {

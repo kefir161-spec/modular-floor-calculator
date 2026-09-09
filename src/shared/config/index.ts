@@ -2,6 +2,16 @@ import { resolvePublicUrl } from '@/shared/lib/urls'
 
 export { CATALOG_ELIGIBILITY } from './catalog-eligibility'
 export { tokens, KONVA_THEME, applyTokensToDocument, tokensToCssVariables } from './tokens'
+export {
+  DEFAULT_EDGING,
+  EDGING_COLOR_LABELS,
+  EDGING_FAMILY_SLUG,
+  EDGING_GEOMETRY,
+  EDGING_PRICES,
+  EDGING_THICKNESSES,
+  isEdgingThickness,
+  resolveEdgingColorGroup,
+} from './edging'
 
 const LOCAL_CATALOG_PATH = '/data/plastfactor_catalog.xml'
 const REMOTE_CATALOG_URL = 'https://plastfactor.com/bitrix/catalog_export/export_Q7r.xml'
@@ -19,7 +29,7 @@ function resolveCatalogUrl(): string {
 export const APP_CONFIG = {
   defaultGapMm: 5,
   defaultWastePercent: 5,
-  schemaVersion: 2,
+  schemaVersion: 4,
   productUrlParam: import.meta.env.VITE_PRODUCT_URL_PARAM ?? 'offerId',
   catalogMode: (import.meta.env.VITE_CATALOG_MODE ?? 'local') as 'local' | 'remote',
   catalogUrl: resolveCatalogUrl(),

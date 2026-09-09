@@ -1,5 +1,14 @@
-import type { DisplaySettings, LayoutSettings, RoomState, SavedLayoutSettings, SavedProject } from '@/shared/types'
+import type {
+  DisplaySettings,
+  EdgingSettings,
+  LayoutSettings,
+  RoomState,
+  SavedLayoutSettings,
+  SavedProject,
+} from '@/shared/types'
 import { APP_CONFIG } from '@/shared/config'
+import { DEFAULT_EDGING, isEdgingThickness } from '@/shared/config/edging'
+import { inferShapePreset } from '@/shared/geometry/room-contour'
 
 function migrateLayout(layout: SavedLayoutSettings): SavedLayoutSettings {
   return {
@@ -16,11 +25,23 @@ function migrateLayout(layout: SavedLayoutSettings): SavedLayoutSettings {
 function migrateRoom(room: Partial<RoomState> & Pick<RoomState, 'contour' | 'shapeType' | 'gapMm'>): RoomState {
   return {
     shapeType: room.shapeType,
+    shapePreset: room.shapePreset ?? inferShapePreset(room.contour, room.shapeType),
     contour: room.contour,
     gapMm: room.gapMm,
     unit: room.unit ?? 'mm',
     obstacles: room.obstacles ?? [],
     openings: room.openings ?? [],
+  }
+}
+
+/** Проекты до v3 сохранялись без окантовки — она выключена по умолчанию. */
+function migrateEdging(edging: Partial<EdgingSettings> | undefined): EdgingSettings {
+  if (!edging) return { ...DEFAULT_EDGING }
+  return {
+    enabled: edging.enabled ?? DEFAULT_EDGING.enabled,
+    thicknessMm: isEdgingThickness(edging.thicknessMm)
+      ? edging.thicknessMm
+      : DEFAULT_EDGING.thicknessMm,
   }
 }
 
@@ -30,6 +51,8 @@ export function migrateProject(project: SavedProject): SavedProject {
     schemaVersion: Math.max(project.schemaVersion, APP_CONFIG.schemaVersion),
     room: migrateRoom(project.room),
     layout: migrateLayout(project.layout),
+    edging: migrateEdging(project.edging),
+    colorOverrides: project.colorOverrides ?? {},
   }
 }
 

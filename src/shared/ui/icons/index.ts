@@ -25,6 +25,7 @@ export {
   RemoveVertexIcon,
   ObstacleIcon,
   OpeningIcon,
+  BrushIcon,
   OrthoSnapIcon,
   GridSnapIcon,
   ShapeRectangleIcon,

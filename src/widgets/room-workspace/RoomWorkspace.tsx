@@ -3,11 +3,14 @@ import { Stage, Layer, Line, Circle, Text, Rect, Group } from 'react-konva'
 import type Konva from 'konva'
 import {
   selectCanRedo,
+  selectCanRedoPaint,
   selectCanUndo,
+  selectCanUndoPaint,
   useCalculatorStore,
 } from '@/app/store/calculator-store'
 import { KONVA_THEME, tokens } from '@/shared/config/tokens'
-import { useTileImage } from '@/shared/lib/use-tile-image'
+import { findFamilyByVariant, findLayoutModuleAt, modulePaintKey, paintPalette } from '@/shared/lib/paint'
+import { usePaletteTileImages, useTileImage } from '@/shared/lib/use-tile-image'
 import { computeFitTransform, type ViewTransform } from '@/shared/lib/canvas-view'
 import {
   formatArea,
@@ -23,16 +26,19 @@ import {
   obstacleWallOffsets,
 } from '@/shared/geometry/obstacles'
 import { insertVertexOnEdge, removeVertex, snapVertexDrag } from '@/shared/geometry/polygon-edit'
-import { edgeLabelTopLeft, getEdgeLabelPlacement } from './edge-dimension-label'
+import { edgeLabelTopLeft, getEdgeLabelPlacement, getVertexAnglePlacement } from './edge-dimension-label'
 import { useToast } from '@/shared/ui/Toast'
 import { LayoutModulesLayer } from './LayoutModulesLayer'
+import { EdgingLayer } from './EdgingLayer'
 import { CanvasToolbar } from './CanvasToolbar'
 import { PolygonToolsBar } from './PolygonToolsBar'
+import { BrushPalette } from './BrushPalette'
 import { LayoutSettingsPopover } from './LayoutSettingsPopover'
 import { useCanvasViewController } from './use-canvas-view-controller'
 import styles from './RoomWorkspace.module.scss'
 
 const DEFAULT_CANVAS_SIZE = { width: 900, height: 560 }
+const EMPTY_COLOR_PALETTE: ReturnType<typeof paintPalette> = []
 
 const OBSTACLE_FILL = 'rgba(71, 84, 103, 0.28)'
 const OBSTACLE_STROKE = tokens.color.textMuted
@@ -59,8 +65,18 @@ export function RoomWorkspace({
   const commitContourHistory = useCalculatorStore((s) => s.commitContourHistory)
   const undoContour = useCalculatorStore((s) => s.undoContour)
   const redoContour = useCalculatorStore((s) => s.redoContour)
-  const canUndo = useCalculatorStore(selectCanUndo)
-  const canRedo = useCalculatorStore(selectCanRedo)
+  const undoPaint = useCalculatorStore((s) => s.undoPaint)
+  const redoPaint = useCalculatorStore((s) => s.redoPaint)
+  const paintModule = useCalculatorStore((s) => s.paintModule)
+  const commitPaintStroke = useCalculatorStore((s) => s.commitPaintStroke)
+  const setPaintColorId = useCalculatorStore((s) => s.setPaintColorId)
+  const colorOverrides = useCalculatorStore((s) => s.colorOverrides)
+  const paintColorId = useCalculatorStore((s) => s.paintColorId)
+  const catalog = useCalculatorStore((s) => s.catalog)
+  const canUndoContour = useCalculatorStore(selectCanUndo)
+  const canRedoContour = useCalculatorStore(selectCanRedo)
+  const canUndoPaint = useCalculatorStore(selectCanUndoPaint)
+  const canRedoPaint = useCalculatorStore(selectCanRedoPaint)
   const canvasMode = useCalculatorStore((s) => s.ui.canvasMode)
   const fullscreen = useCalculatorStore((s) => s.ui.fullscreen)
   const roomConfigured = useCalculatorStore((s) => s.ui.roomConfigured)
@@ -83,6 +99,7 @@ export function RoomWorkspace({
   const stageRef = useRef<Konva.Stage>(null)
   const canvasWrapRef = useRef<HTMLDivElement>(null)
   const fitRef = useRef<ViewTransform>({ scale: 0.1, x: 0, y: 0 })
+  const paintingRef = useRef(false)
 
   const moduleWidthMm =
     selectedVariant && layout.rotation === 90
@@ -98,6 +115,20 @@ export function RoomWorkspace({
     moduleWidthMm,
     moduleLengthMm,
     selectedVariant?.imageUrl,
+  )
+  const colorPalette = useMemo(() => {
+    if (!catalog || !selectedVariant) return EMPTY_COLOR_PALETTE
+    const family = findFamilyByVariant(catalog.families, selectedVariant)
+    return family ? paintPalette(family, selectedVariant) : EMPTY_COLOR_PALETTE
+  }, [catalog, selectedVariant])
+  const showBrush = colorPalette.length >= 2
+  const brushActive = canvasMode === 'edit' && polygonTool === 'brush'
+  const paletteTextures = usePaletteTileImages(
+    polygonTool === 'brush' || Object.keys(colorOverrides).length > 0
+      ? colorPalette
+      : EMPTY_COLOR_PALETTE,
+    moduleWidthMm,
+    moduleLengthMm,
   )
 
   const bbox = getBoundingBox(room.contour)
@@ -184,19 +215,42 @@ export function RoomWorkspace({
       const mod = e.ctrlKey || e.metaKey
       if (!mod) return
       const key = e.key.toLowerCase()
+      const paintHistory = polygonTool === 'brush'
       if (key === 'z' && !e.shiftKey) {
         e.preventDefault()
-        undoContour()
+        if (paintHistory) undoPaint()
+        else undoContour()
         return
       }
       if (key === 'y' || (key === 'z' && e.shiftKey)) {
         e.preventDefault()
-        redoContour()
+        if (paintHistory) redoPaint()
+        else redoContour()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [undoContour, redoContour])
+  }, [undoContour, redoContour, undoPaint, redoPaint, polygonTool])
+
+  useEffect(() => {
+    if (polygonTool === 'brush' && colorPalette.length < 2) {
+      setUi({ polygonTool: 'select' })
+    }
+  }, [colorPalette.length, polygonTool, setUi])
+
+  useEffect(() => {
+    const endStroke = () => {
+      if (!paintingRef.current) return
+      paintingRef.current = false
+      commitPaintStroke()
+    }
+    window.addEventListener('pointerup', endStroke)
+    window.addEventListener('pointercancel', endStroke)
+    return () => {
+      window.removeEventListener('pointerup', endStroke)
+      window.removeEventListener('pointercancel', endStroke)
+    }
+  }, [commitPaintStroke])
 
   const contourPoints = room.contour.flatMap((p) => [p.x, p.y])
   const workingPoints =
@@ -231,8 +285,13 @@ export function RoomWorkspace({
         `зона укладки ${formatArea(calculation.workingAreaSqm)},`,
         `к покупке ${calculation.modulesWithWasteCount} плиток`,
         `(${calculation.fullModulesCount} целых, ${calculation.cutModulesCount} с подрезкой).`,
+        calculation.edging
+          ? `Окантовка по периметру: ${calculation.edging.straightTotal} прямых и ${calculation.edging.cornerTotal} угловых кантов.`
+          : '',
         shapeHint,
-      ].join(' ')
+      ]
+        .filter(Boolean)
+        .join(' ')
     }
     if (selectedVariant && !roomConfigured) {
       return `Выбрано покрытие. ${shapeHint}`
@@ -246,15 +305,44 @@ export function RoomWorkspace({
   const showTexture =
     Boolean(calculation && selectedVariant && workingContour.success && tileImage && tileCrop)
 
+  const edgingPieces = calculation?.edging?.pieces ?? []
+
   const showVertices =
-    editActive && (polygonEdit || polygonTool === 'add-vertex' || polygonTool === 'remove-vertex')
+    editActive &&
+    !brushActive &&
+    (polygonEdit || polygonTool === 'add-vertex' || polygonTool === 'remove-vertex')
 
   const obstacleDraggable =
-    editActive && (polygonTool === 'select' || polygonTool === 'obstacle')
+    editActive && !brushActive && (polygonTool === 'select' || polygonTool === 'obstacle')
+
+  const paintAtPointer = () => {
+    const stage = stageRef.current
+    const modules = calculation?.layout.modules
+    if (!stage || !modules?.length) return
+    const pos = stage.getRelativePointerPosition()
+    if (!pos) return
+    const mod = findLayoutModuleAt(modules, pos.x, pos.y)
+    if (!mod) return
+    paintModule(modulePaintKey(mod))
+  }
+
+  const handleBrushPointerDown = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    e.cancelBubble = true
+    e.evt.preventDefault()
+    paintingRef.current = true
+    paintAtPointer()
+  }
+
+  const handleBrushPointerMove = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if (!paintingRef.current) return
+    e.cancelBubble = true
+    e.evt.preventDefault()
+    paintAtPointer()
+  }
 
   const handleEdgeClick = (edgeIndex: number, e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     e.cancelBubble = true
-    if (!editActive) return
+    if (!editActive || brushActive) return
 
     if (polygonTool === 'add-vertex') {
       const next = insertVertexOnEdge(room.contour, edgeIndex)
@@ -274,7 +362,7 @@ export function RoomWorkspace({
 
   const handleVertexClick = (vertexIndex: number, e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     e.cancelBubble = true
-    if (!editActive) return
+    if (!editActive || brushActive) return
 
     if (polygonTool === 'remove-vertex') {
       const next = removeVertex(room.contour, vertexIndex)
@@ -310,7 +398,10 @@ export function RoomWorkspace({
 
   return (
     <div className={`${styles.workspace} ${fullscreen ? styles.workspaceFullscreen : ''}`.trim()}>
-      <div className={styles.canvasWrap} ref={canvasWrapRef}>
+      <div
+        className={`${styles.canvasWrap} ${brushActive ? styles.canvasBrush : ''}`.trim()}
+        ref={canvasWrapRef}
+      >
         <div className={styles.floatingChrome}>
           <CanvasToolbar
             mode={canvasMode}
@@ -320,23 +411,36 @@ export function RoomWorkspace({
             onFit={resetView}
             onToggleFullscreen={() => setUi({ fullscreen: !fullscreen })}
             fullscreen={fullscreen}
-            onUndo={undoContour}
-            onRedo={redoContour}
-            canUndo={canUndo}
-            canRedo={canRedo}
+            onUndo={brushActive ? undoPaint : undoContour}
+            onRedo={brushActive ? redoPaint : redoContour}
+            canUndo={brushActive ? canUndoPaint : canUndoContour}
+            canRedo={brushActive ? canRedoPaint : canRedoContour}
           />
           {editActive ? (
             <PolygonToolsBar
               tool={polygonTool}
-              onToolChange={(tool) => setUi({ polygonTool: tool })}
+              onToolChange={(tool) => {
+                if (polygonTool === 'brush' && tool !== 'brush') commitPaintStroke()
+                setUi({ polygonTool: tool })
+              }}
               snapOrtho={snapOrtho}
               onSnapOrthoChange={(value) => setUi({ snapOrtho: value })}
               snapGridMm={snapGridMm}
               onSnapGridChange={(mm) => setUi({ snapGridMm: mm })}
+              showBrush={showBrush}
             />
           ) : null}
           <LayoutSettingsPopover />
         </div>
+        {editActive && brushActive ? (
+          <div className={styles.paletteDock}>
+            <BrushPalette
+              colors={colorPalette}
+              selectedId={paintColorId}
+              onSelect={setPaintColorId}
+            />
+          </div>
+        ) : null}
 
         <div className={styles.htmlOverlay}>
           {!contourValid ? (
@@ -350,12 +454,14 @@ export function RoomWorkspace({
                 <span className={styles.legendFull}>целые</span>
                 <span className={styles.legendCut}>подрезка</span>
                 <span className={styles.legendCenter}>центр</span>
+                {calculation.edging ? (
+                  <>
+                    <span className={styles.legendEdgingStraight1}>кант №1</span>
+                    <span className={styles.legendEdgingStraight2}>кант №2</span>
+                    <span className={styles.legendEdgingCorner}>угловой</span>
+                  </>
+                ) : null}
               </div>
-              <p className={styles.infoLine}>
-                Модуль {selectedVariant.lengthMm}×{selectedVariant.widthMm} мм ·{' '}
-                {calculation.fullModulesCount} целых · {calculation.cutModulesCount} подрезок ·
-                итого {calculation.modulesWithWasteCount} шт.
-              </p>
             </>
           ) : (
             <span className={styles.canvasHint}>
@@ -445,7 +551,13 @@ export function RoomWorkspace({
                 moduleWidthMm={moduleWidthMm ?? 500}
                 moduleLengthMm={moduleLengthMm ?? 500}
                 centerModuleId={centerModuleId}
+                colorOverrides={colorOverrides}
+                paletteTextures={paletteTextures}
               />
+            ) : null}
+
+            {edgingPieces.length > 0 ? (
+              <EdgingLayer pieces={edgingPieces} scale={scale} />
             ) : null}
 
             {workingContour.success ? (
@@ -519,6 +631,46 @@ export function RoomWorkspace({
                   </Group>
                 )
               })}
+
+            {display.showDimensions &&
+              (room.shapeType === 'polygon' || room.contour.length !== 4) &&
+              room.contour.map((_, i) => {
+                const placement = getVertexAnglePlacement(room.contour, i, { scale })
+                if (!placement) return null
+                const origin = edgeLabelTopLeft(placement)
+                const strokeW = 1 / scale
+                const radius = 4 / scale
+                return (
+                  <Group key={`ang-${i}`} listening={false}>
+                    <Rect
+                      x={origin.x}
+                      y={origin.y}
+                      width={placement.boxWidth}
+                      height={placement.boxHeight}
+                      fill="rgba(255,255,255,0.92)"
+                      cornerRadius={radius}
+                      stroke="rgba(16,24,40,0.1)"
+                      strokeWidth={strokeW}
+                      listening={false}
+                    />
+                    <Text
+                      x={origin.x}
+                      y={origin.y}
+                      width={placement.boxWidth}
+                      height={placement.boxHeight}
+                      text={placement.text}
+                      fontSize={placement.fontSize}
+                      fontFamily="system-ui, Segoe UI, sans-serif"
+                      fontStyle="600"
+                      fill={KONVA_THEME.text}
+                      align="center"
+                      verticalAlign="middle"
+                      listening={false}
+                      perfectDrawEnabled={false}
+                    />
+                  </Group>
+                )
+              })}
           </Layer>
 
           <Layer listening={editActive}>
@@ -536,6 +688,7 @@ export function RoomWorkspace({
             ) : null}
 
             {editActive &&
+              !brushActive &&
               room.contour.map((point, i) => {
                 const next = room.contour[(i + 1) % room.contour.length]
                 return (
@@ -551,6 +704,7 @@ export function RoomWorkspace({
               })}
 
             {editActive &&
+              !brushActive &&
               polygonTool === 'add-vertex' &&
               room.contour.map((point, i) => {
                 const next = room.contour[(i + 1) % room.contour.length]
@@ -679,9 +833,24 @@ export function RoomWorkspace({
                     const next = room.contour.map((p, j) => (j === i ? snapped : p))
                     setContour(next)
                   }}
-                  onDragEnd={commitContourHistory}
+                    onDragEnd={commitContourHistory}
                 />
               ))}
+
+            {editActive && brushActive ? (
+              <Rect
+                name="brush-hit"
+                x={bbox.minX - 400}
+                y={bbox.minY - 400}
+                width={bbox.maxX - bbox.minX + 800}
+                height={bbox.maxY - bbox.minY + 800}
+                fill="transparent"
+                onMouseDown={handleBrushPointerDown}
+                onTouchStart={handleBrushPointerDown}
+                onMouseMove={handleBrushPointerMove}
+                onTouchMove={handleBrushPointerMove}
+              />
+            ) : null}
           </Layer>
         </Stage>
 

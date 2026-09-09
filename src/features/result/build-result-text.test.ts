@@ -62,4 +62,36 @@ describe('buildResultClipboardText', () => {
     expect(text).toContain('7')
     expect(text).toContain('предварительный')
   })
+
+  it('добавляет раскладку по цветам', () => {
+    const text = buildResultClipboardText({
+      projectName: 'Гараж',
+      variant,
+      room,
+      calculation: {
+        ...calculation,
+        colorBreakdown: [
+          {
+            variantId: 'v1',
+            colorName: 'Серый',
+            modulesCount: 50,
+            modulesToPurchase: 50,
+            modulesWithWasteCount: 53,
+            totalCost: 5300,
+          },
+          {
+            variantId: 'v2',
+            colorName: 'Чёрный',
+            modulesCount: 20,
+            modulesToPurchase: 20,
+            modulesWithWasteCount: 21,
+            totalCost: 2100,
+          },
+        ],
+      },
+    })
+    expect(text).toContain('По цветам')
+    expect(text).toContain('Серый')
+    expect(text).toContain('Чёрный')
+  })
 })

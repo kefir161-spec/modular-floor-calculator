@@ -30,7 +30,7 @@ export function ProductCatalog({ onSelected }: Props) {
   const [category, setCategory] = useState('')
   const [expandedFamily, setExpandedFamily] = useState<string | null>(null)
   const [collapsedLines, setCollapsedLines] = useState<Record<string, boolean>>({})
-  const [initialized, setInitialized] = useState(false)
+  const [preselectApplied, setPreselectApplied] = useState(false)
 
   const filtered = useMemo(() => {
     if (!catalog) return []
@@ -51,19 +51,16 @@ export function ProductCatalog({ onSelected }: Props) {
   const lineGroups = useMemo(() => groupFamiliesByLine(filtered), [filtered])
 
   useEffect(() => {
-    if (!catalog || initialized) return
-    const firstLine = groupFamiliesByLine(catalog.families)[0]
-    if (firstLine) {
-      setCollapsedLines({ [firstLine.id]: false })
-    }
-    if (current) {
-      const family = catalog.families.find((f) =>
-        f.variants.some((v) => v.id === current.id),
-      )
-      if (family) setExpandedFamily(family.id)
-    }
-    setInitialized(true)
-  }, [catalog, current, initialized])
+    if (!catalog || preselectApplied || !current) return
+    const family = catalog.families.find((f) => f.variants.some((v) => v.id === current.id))
+    if (!family) return
+    const group = groupFamiliesByLine(catalog.families).find((g) =>
+      g.families.some((f) => f.id === family.id),
+    )
+    setExpandedFamily(family.id)
+    if (group) setCollapsedLines({ [group.id]: false })
+    setPreselectApplied(true)
+  }, [catalog, current, preselectApplied])
 
   const handleSelect = (variant: ProductVariant, familyId: string) => {
     selectVariant(variant)

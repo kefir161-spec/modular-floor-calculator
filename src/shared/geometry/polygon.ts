@@ -29,14 +29,16 @@ export function createUShapePolygon(
   _innerW: number,
   innerH: number,
   legWidth: number,
+  rightLegWidth = legWidth,
 ): Polygon {
   const topH = outerH - innerH
+  const rightLeg = rightLegWidth
   return [
     { x: 0, y: 0 },
     { x: outerW, y: 0 },
     { x: outerW, y: outerH },
-    { x: outerW - legWidth, y: outerH },
-    { x: outerW - legWidth, y: topH },
+    { x: outerW - rightLeg, y: outerH },
+    { x: outerW - rightLeg, y: topH },
     { x: legWidth, y: topH },
     { x: legWidth, y: outerH },
     { x: 0, y: outerH },
@@ -180,6 +182,32 @@ function lineIntersection(
   return { x: p1.x + t * d1.x, y: p1.y + t * d1.y }
 }
 
+/**
+ * Угол offset-контура. Для коллинеарных рёбер (внутренний угол 180°)
+ * прямые смещения параллельны — берём сдвиг самой вершины, а не пересечение.
+ */
+function offsetCorner(
+  polygon: Polygon,
+  edgeIndex: number,
+  l1: { point: Point; direction: Point },
+  l2: { point: Point; direction: Point },
+): Point | null {
+  const n = polygon.length
+  const start = polygon[edgeIndex]
+  const vertex = polygon[(edgeIndex + 1) % n]
+  const shift = { x: l1.point.x - start.x, y: l1.point.y - start.y }
+  const alongEdge = { x: vertex.x + shift.x, y: vertex.y + shift.y }
+  const dot = l1.direction.x * l2.direction.x + l1.direction.y * l2.direction.y
+  const intersection = lineIntersection(l1.point, l1.direction, l2.point, l2.direction)
+  if (!intersection) {
+    return dot > 0.5 ? alongEdge : null
+  }
+  const miter = Math.hypot(intersection.x - vertex.x, intersection.y - vertex.y)
+  const shiftLen = Math.hypot(shift.x, shift.y) || 1
+  if (miter > shiftLen * 40 && dot > 0.98) return alongEdge
+  return intersection
+}
+
 export type OffsetResult =
   | { success: true; polygon: Polygon }
   | { success: false; reason: string }
@@ -211,13 +239,11 @@ export function offsetPolygonOutward(polygon: Polygon, distanceMm: number): Offs
 
   const result: Polygon = []
   for (let i = 0; i < n; i++) {
-    const l1 = offsetLines[i]
-    const l2 = offsetLines[(i + 1) % n]
-    const intersection = lineIntersection(l1.point, l1.direction, l2.point, l2.direction)
-    if (!intersection) {
+    const corner = offsetCorner(polygon, i, offsetLines[i], offsetLines[(i + 1) % n])
+    if (!corner) {
       return { success: false, reason: 'Не удалось построить внешний контур зазора' }
     }
-    result.push(intersection)
+    result.push(corner)
   }
 
   if (polygonArea(result) < EPS) {
@@ -252,13 +278,11 @@ export function offsetPolygonInward(polygon: Polygon, distanceMm: number): Offse
 
   const result: Polygon = []
   for (let i = 0; i < n; i++) {
-    const l1 = offsetLines[i]
-    const l2 = offsetLines[(i + 1) % n]
-    const intersection = lineIntersection(l1.point, l1.direction, l2.point, l2.direction)
-    if (!intersection) {
+    const corner = offsetCorner(polygon, i, offsetLines[i], offsetLines[(i + 1) % n])
+    if (!corner) {
       return { success: false, reason: 'Не удалось построить технологический зазор для данной формы' }
     }
-    result.push(intersection)
+    result.push(corner)
   }
 
   if (polygonArea(result) < EPS) {

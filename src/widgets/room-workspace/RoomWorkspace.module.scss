@@ -28,6 +28,10 @@
   box-shadow: inset 0 0 0 1px rgb(16 24 40 / 2%);
 }
 
+.canvasBrush {
+  cursor: crosshair;
+}
+
 .workspaceFullscreen .canvasWrap {
   min-height: 0;
   height: 100%;
@@ -47,6 +51,15 @@
   justify-content: center;
   gap: 8px;
   max-width: calc(100% - 16px);
+}
+
+.paletteDock {
+  position: absolute;
+  top: 56px;
+  left: var(--pf-spacing-sm);
+  z-index: var(--pf-z-floating, 20);
+  pointer-events: auto;
+  max-height: calc(100% - 72px);
 }
 
 .warningBanner {
@@ -72,7 +85,7 @@
   gap: 6px;
   pointer-events: none;
   /* место под sticky-итог справа (desktop) */
-  right: calc(min(280px, 42%) + var(--pf-spacing-md) + 20px);
+  right: calc(min(252px, 42%) + var(--pf-spacing-md) + 20px);
   max-width: min(560px, 100%);
 }
 
@@ -105,7 +118,10 @@
 
 .legendFull::before,
 .legendCut::before,
-.legendCenter::before {
+.legendCenter::before,
+.legendEdgingStraight1::before,
+.legendEdgingStraight2::before,
+.legendEdgingCorner::before {
   content: '';
   display: inline-block;
   width: 8px;
@@ -135,22 +151,25 @@
   border-radius: 50%;
 }
 
-.legendFull,
-.legendCut,
-.legendCenter {
-  color: var(--pf-color-text);
+.legendEdgingStraight1::before {
+  background: var(--pf-color-edging-straight-1);
 }
 
-.infoLine {
-  margin: 0;
-  font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
-  padding: 6px 10px;
-  background: rgb(255 255 255 / 92%);
-  border-radius: var(--pf-radius-sm);
-  border: 1px solid var(--pf-color-border);
-  color: var(--pf-color-text-secondary, var(--pf-color-text));
-  max-width: 100%;
+.legendEdgingStraight2::before {
+  background: var(--pf-color-edging-straight-2);
+}
+
+.legendEdgingCorner::before {
+  background: var(--pf-color-edging-corner);
+}
+
+.legendFull,
+.legendCut,
+.legendCenter,
+.legendEdgingStraight1,
+.legendEdgingStraight2,
+.legendEdgingCorner {
+  color: var(--pf-color-text);
 }
 
 .textureLoading,
@@ -282,6 +301,12 @@
     width: 100%;
     justify-content: center;
     flex-wrap: wrap;
+  }
+
+  .paletteDock {
+    top: auto;
+    bottom: var(--pf-spacing-sm);
+    max-height: 42%;
   }
 
   .vertexA11y {

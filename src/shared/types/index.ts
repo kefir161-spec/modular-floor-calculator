@@ -60,6 +60,9 @@ export type CatalogEligibilityConfig = {
 
 export type RoomShapeType = 'rectangle' | 'polygon'
 
+/** Пресет формы: прямоугольник пересобирается параметрически, L/U/ниша держат 90°. */
+export type RoomShapePreset = 'rectangle' | 'l' | 'u' | 'niche' | 'custom'
+
 /** Прямоугольное внутреннее препятствие (колонна, бассейн и т.п.), мм */
 export type Obstacle = {
   id: string
@@ -83,6 +86,8 @@ export type Opening = {
 
 export type RoomState = {
   shapeType: RoomShapeType
+  /** Пресет панели размеров (v4+, при загрузке выводится из контура) */
+  shapePreset?: RoomShapePreset
   /** Room contour in mm, clockwise, closed implicitly */
   contour: Polygon
   /** Technological gap in mm */
@@ -124,8 +129,11 @@ export type SavedLayoutSettings = LayoutSettings &
 
 export type CanvasInteractionMode = 'edit' | 'pan'
 
-/** Инструменты редактора контура (Фаза 6) */
-export type PolygonTool = 'select' | 'add-vertex' | 'remove-vertex' | 'obstacle' | 'opening'
+/** Инструменты редактора контура и покраски */
+export type PolygonTool = 'select' | 'add-vertex' | 'remove-vertex' | 'obstacle' | 'opening' | 'brush'
+
+/** Покраска модуля: ключ позиции → id варианта того же покрытия */
+export type ColorOverrides = Record<string, string>
 
 export type UiState = {
   mobileStep: number
@@ -151,6 +159,67 @@ export type UiState = {
   selectedObstacleId: string | null
 }
 
+
+/** Толщина окантовки — совпадает с толщиной плитки Optima Duos. */
+export type EdgingThickness = 9 | 16
+
+/** Ценовая группа канта: чёрный дешевле цветного. */
+export type EdgingColorGroup = 'black' | 'colored'
+
+/** Прямой кант: №1 — с гвоздиками, №2 — с отверстиями. */
+export type EdgingStraightType = 1 | 2
+
+/** Угловой кант: №1–№4 по комбинации сторон, сходящихся в углу. */
+export type EdgingCornerType = 1 | 2 | 3 | 4
+
+/** Сторона света для внешней нормали ребра (экранные координаты, y вниз). */
+export type CardinalDirection = 'north' | 'east' | 'south' | 'west'
+
+export type EdgingSettings = {
+  enabled: boolean
+  thicknessMm: EdgingThickness
+}
+
+export type EdgingStraightPiece = {
+  id: string
+  kind: 'straight'
+  type: EdgingStraightType
+  polygon: Polygon
+  /** Фактическая длина вдоль края; меньше номинала — элемент режется по месту */
+  lengthMm: number
+}
+
+export type EdgingCornerPiece = {
+  id: string
+  kind: 'corner'
+  type: EdgingCornerType
+  polygon: Polygon
+}
+
+export type EdgingPiece = EdgingStraightPiece | EdgingCornerPiece
+
+export type EdgingLayout = {
+  pieces: EdgingPiece[]
+  straightCounts: Record<EdgingStraightType, number>
+  cornerCounts: Record<EdgingCornerType, number>
+  straightTotal: number
+  cornerTotal: number
+  /** Прямых элементов, которые придётся подрезать по месту */
+  trimmedStraightCount: number
+  /** Углы, куда стандартный угловой элемент не встаёт (не 90° или вогнутый) */
+  unsupportedCornerCount: number
+  perimeterMm: number
+}
+
+export type EdgingResult = EdgingLayout & {
+  thicknessMm: EdgingThickness
+  colorGroup: EdgingColorGroup
+  straightPrice: number
+  cornerPrice: number
+  straightCost: number
+  cornerCost: number
+  totalCost: number
+}
 
 export type ModuleStatus = 'full' | 'cut' | 'outside'
 
@@ -186,6 +255,9 @@ export type CalculationWarningCode =
   | 'product_not_calculable'
   | 'too_many_modules'
   | 'obstacle_invalid'
+  | 'edging_unsupported_corner'
+  | 'edging_trimmed_pieces'
+  | 'edging_thickness_mismatch'
 
 export type CalculationWarning = {
   code: CalculationWarningCode
@@ -199,11 +271,13 @@ export type CalculationInput = {
   obstacles?: Obstacle[]
   openingsLengthMm?: number
   module: {
+    id?: string
     widthMm: number
     lengthMm: number
     weightKg?: number
     price?: number
     priceUnit: PriceUnit
+    colorName?: string
   }
   layout: {
     rotation: 0 | 90
@@ -212,6 +286,25 @@ export type CalculationInput = {
     startPoint: LayoutStartPoint
   }
   wastePercent: number
+  /** Окантовка по периметру зоны укладки (только Optima Duos) */
+  edging?: EdgingSettings
+  /** Покраска модулей другим цветом той же серии */
+  colorOverrides?: ColorOverrides
+  paletteVariants?: Array<{
+    id: string
+    colorName?: string
+    price?: number
+    priceUnit: PriceUnit
+  }>
+}
+
+export type ColorBreakdownRow = {
+  variantId: string
+  colorName?: string
+  modulesCount: number
+  modulesToPurchase: number
+  modulesWithWasteCount: number
+  totalCost?: number
 }
 
 export type CalculationResult = {
@@ -237,6 +330,10 @@ export type CalculationResult = {
   totalCost?: number
   totalCostBySqm?: number
   totalWeightKg?: number
+  /** Спецификация окантовки; отсутствует, когда кант выключен или недоступен */
+  edging?: EdgingResult
+  /** Раскладка по цветам, если часть модулей покрашена */
+  colorBreakdown?: ColorBreakdownRow[]
   warnings: CalculationWarning[]
   layout: LayoutResult
 }
@@ -252,4 +349,8 @@ export type SavedProject = {
   room: RoomState
   layout: SavedLayoutSettings
   wastePercent: number
+  /** Окантовка (schema v3+) */
+  edging?: EdgingSettings
+  /** Покраска модулей (schema v4+) */
+  colorOverrides?: ColorOverrides
 }

@@ -67,6 +67,40 @@
   gap: var(--pf-spacing-sm);
 }
 
+.offsets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-spacing-sm);
+  padding: 10px 12px;
+  border: 1px solid var(--pf-color-border);
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-color-surface);
+}
+
+.offsetsTitle {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: var(--pf-color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.formHint {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--pf-color-muted);
+}
+
+.edgeRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px;
+  gap: 8px;
+  align-items: start;
+}
+
 .presets {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

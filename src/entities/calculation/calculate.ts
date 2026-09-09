@@ -6,6 +6,8 @@ import { estimateModulesToPurchase } from '@/shared/geometry/module-purchase'
 import { resolveModuleUnitPrices } from '@/shared/lib/pricing'
 import { obstacleToPolygon } from '@/shared/geometry/obstacles'
 import { isPolygonValid } from '@/shared/geometry/polygon'
+import { calculateEdging } from '@/entities/calculation/edging'
+import { buildColorBreakdown } from '@/entities/calculation/color-breakdown'
 
 export function calculate(input: CalculationInput): CalculationResult {
   const warnings: CalculationWarning[] = []
@@ -56,8 +58,8 @@ export function calculate(input: CalculationInput): CalculationResult {
   const fullModulesCount = purchase.fullModulesCount
   const cutModulesCount = purchase.cutPlacementsCount
   const cutSourceModulesCount = purchase.cutSourceModulesCount
-  const modulesToPurchase = purchase.modulesToPurchase
-  const totalModulesCount = modulesToPurchase
+  let modulesToPurchase = purchase.modulesToPurchase
+  let totalModulesCount = modulesToPurchase
 
   if (layout.modules.length > APP_CONFIG.maxModulesWarning) {
     warnings.push({
@@ -66,10 +68,10 @@ export function calculate(input: CalculationInput): CalculationResult {
     })
   }
 
-  const modulesWithWasteCount = Math.ceil(modulesToPurchase * (1 + input.wastePercent / 100))
+  let modulesWithWasteCount = Math.ceil(modulesToPurchase * (1 + input.wastePercent / 100))
 
   const moduleAreaSqm = (input.module.widthMm * input.module.lengthMm) / 1_000_000
-  const purchaseAreaSqm = modulesWithWasteCount * moduleAreaSqm
+  let purchaseAreaSqm = modulesWithWasteCount * moduleAreaSqm
 
   const unitPrices = resolveModuleUnitPrices({
     price: input.module.price,
@@ -103,13 +105,64 @@ export function calculate(input: CalculationInput): CalculationResult {
   }
 
   let totalWeightKg: number | undefined
-  if (input.module.weightKg !== undefined) {
-    totalWeightKg = modulesWithWasteCount * input.module.weightKg
-  } else {
+  if (input.module.weightKg === undefined) {
     warnings.push({
       code: 'missing_weight',
       message: 'Вес модуля неизвестен',
     })
+  }
+
+  const edging = input.edging?.enabled
+    ? calculateEdging(input.workingPolygon, input.edging.thicknessMm, input.module.colorName)
+    : undefined
+
+  if (edging) {
+    if (edging.unsupportedCornerCount > 0) {
+      warnings.push({
+        code: 'edging_unsupported_corner',
+        message: `Углов не под 90°: ${edging.unsupportedCornerCount} — стандартный угловой кант туда не встаёт, потребуется подрезка по месту`,
+      })
+    }
+    if (edging.trimmedStraightCount > 0) {
+      warnings.push({
+        code: 'edging_trimmed_pieces',
+        message: `Прямых кантов под подрезку: ${edging.trimmedStraightCount} — стороны не кратны 250 мм`,
+      })
+    }
+  }
+
+  const colorBreakdown =
+    input.module.id && input.colorOverrides
+      ? buildColorBreakdown({
+          modules: layout.modules,
+          overrides: input.colorOverrides,
+          baseVariantId: input.module.id,
+          baseColorName: input.module.colorName,
+          basePrice: input.module.price,
+          basePriceUnit: input.module.priceUnit,
+          palette: input.paletteVariants ?? [],
+          widthMm: input.layout.rotation === 90 ? input.module.lengthMm : input.module.widthMm,
+          lengthMm: input.layout.rotation === 90 ? input.module.widthMm : input.module.lengthMm,
+          wastePercent: input.wastePercent,
+        })
+      : undefined
+
+  if (colorBreakdown && colorBreakdown.length > 0) {
+    modulesToPurchase = colorBreakdown.reduce((sum, row) => sum + row.modulesToPurchase, 0)
+    totalModulesCount = modulesToPurchase
+    modulesWithWasteCount = colorBreakdown.reduce((sum, row) => sum + row.modulesWithWasteCount, 0)
+    purchaseAreaSqm = modulesWithWasteCount * moduleAreaSqm
+    const paintedCost = colorBreakdown.reduce((sum, row) => sum + (row.totalCost ?? 0), 0)
+    if (colorBreakdown.every((row) => row.totalCost !== undefined)) {
+      totalCost = paintedCost
+    }
+    if (totalCost !== undefined && unitPrices.pricePerSqm !== undefined) {
+      totalCostBySqm = purchaseAreaSqm * unitPrices.pricePerSqm
+    }
+  }
+
+  if (input.module.weightKg !== undefined) {
+    totalWeightKg = modulesWithWasteCount * input.module.weightKg
   }
 
   return {
@@ -130,6 +183,8 @@ export function calculate(input: CalculationInput): CalculationResult {
     totalCost,
     totalCostBySqm,
     totalWeightKg,
+    edging,
+    colorBreakdown,
     warnings,
     layout,
   }

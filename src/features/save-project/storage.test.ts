@@ -7,10 +7,10 @@ import {
 import type { SavedProject } from '@/shared/types'
 
 describe('project migration regression', () => {
-  it('загружает снапшот schemaVersion 1 без потери данных и поднимает до v2', () => {
+  it('загружает снапшот schemaVersion 1 без потери данных и поднимает до v4', () => {
     const migrated = migrateProject(structuredClone(SAVED_PROJECT_V1_FIXTURE))
 
-    expect(migrated.schemaVersion).toBe(2)
+    expect(migrated.schemaVersion).toBe(4)
     expect(migrated.id).toBe('proj-fixture-v1')
     expect(migrated.name).toBe('Регрессия v1')
     expect(migrated.productSourceId).toBe('5200')
@@ -19,6 +19,7 @@ describe('project migration regression', () => {
     expect(migrated.room.gapMm).toBe(5)
     expect(migrated.room.obstacles).toEqual([])
     expect(migrated.room.openings).toEqual([])
+    expect(migrated.room.shapePreset).toBe('rectangle')
     expect(migrated.layout.rotation).toBe(0)
     expect(migrated.layout.startPoint).toBe('corner')
     expect(migrated.layout.showDimensions).toBe(true)
@@ -26,14 +27,19 @@ describe('project migration regression', () => {
     expect(migrated.layout.showGrid).toBeUndefined()
     expect(migrated.wastePercent).toBe(5)
     expect(migrated.productSnapshot.lengthMm).toBe(375)
+    // v3: окантовки в старых проектах не было
+    expect(migrated.edging).toEqual({ enabled: false, thicknessMm: 9 })
+    expect(migrated.colorOverrides).toEqual({})
   })
 
-  it('мигрирует schemaVersion 0: добавляет unit, отбрасывает showGrid, v2 поля', () => {
+  it('мигрирует schemaVersion 0: добавляет unit, отбрасывает showGrid, v2–v4 поля', () => {
     const migrated = migrateProject(
       structuredClone(SAVED_PROJECT_V0_WITH_GRID) as unknown as SavedProject,
     )
 
-    expect(migrated.schemaVersion).toBe(2)
+    expect(migrated.schemaVersion).toBe(4)
+    expect(migrated.edging).toEqual({ enabled: false, thicknessMm: 9 })
+    expect(migrated.colorOverrides).toEqual({})
     expect(migrated.room.unit).toBe('mm')
     expect(migrated.room.obstacles).toEqual([])
     expect(migrated.room.openings).toEqual([])
@@ -45,6 +51,28 @@ describe('project migration regression', () => {
     expect(migrated.layout.showCutVisualization).toBe(true)
     expect(migrated.layout.showGrid).toBeUndefined()
     expect(migrated.wastePercent).toBe(10)
+  })
+
+  it('сохраняет включённую окантовку из проекта v3', () => {
+    const project: SavedProject = {
+      ...structuredClone(SAVED_PROJECT_V1_FIXTURE),
+      schemaVersion: 3,
+      edging: { enabled: true, thicknessMm: 16 },
+    }
+
+    expect(migrateProject(project).edging).toEqual({ enabled: true, thicknessMm: 16 })
+    expect(migrateProject(project).colorOverrides).toEqual({})
+    expect(migrateProject(project).schemaVersion).toBe(4)
+  })
+
+  it('сохраняет покраску из проекта v4', () => {
+    const project: SavedProject = {
+      ...structuredClone(SAVED_PROJECT_V1_FIXTURE),
+      schemaVersion: 4,
+      colorOverrides: { '0:0': 'gray-1' },
+    }
+
+    expect(migrateProject(project).colorOverrides).toEqual({ '0:0': 'gray-1' })
   })
 
   it('splitSavedLayout разделяет геометрию и display', () => {
@@ -67,7 +95,7 @@ describe('project migration regression', () => {
     const migrated = migrateProject(parsed)
 
     expect(migrated).toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 4,
       productSourceId: '5200',
       wastePercent: 5,
       room: { gapMm: 5, unit: 'm', shapeType: 'rectangle', obstacles: [], openings: [] },

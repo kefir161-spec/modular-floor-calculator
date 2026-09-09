@@ -1,0 +1,39 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-spacing-sm);
+}
+
+.sectionLabel {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--pf-color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fieldLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--pf-color-muted);
+}
+
+.mismatch {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--pf-color-warning);
+}
+
+.counts {
+  margin: 0;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--pf-color-text-secondary, var(--pf-color-text));
+}

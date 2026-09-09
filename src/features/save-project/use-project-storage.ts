@@ -17,6 +17,10 @@ export function useProjectStorage() {
   const layout = useCalculatorStore((s) => s.layout)
   const display = useCalculatorStore((s) => s.display)
   const wastePercent = useCalculatorStore((s) => s.wastePercent)
+  const edging = useCalculatorStore((s) => s.edging)
+  const colorOverrides = useCalculatorStore((s) => s.colorOverrides)
+  const setEdging = useCalculatorStore((s) => s.setEdging)
+  const loadColorOverrides = useCalculatorStore((s) => s.loadColorOverrides)
   const setRoom = useCalculatorStore((s) => s.setRoom)
   const loadSavedLayout = useCalculatorStore((s) => s.loadSavedLayout)
   const applyContour = useCalculatorStore((s) => s.applyContour)
@@ -43,6 +47,8 @@ export function useProjectStorage() {
       room,
       layout: toSavedLayout(layout, display),
       wastePercent,
+      edging,
+      colorOverrides,
     }
   }
 
@@ -77,7 +83,9 @@ export function useProjectStorage() {
       unit: project.room.unit,
       shapeType: project.room.shapeType,
     })
-    applyContour(project.room.contour, project.room.shapeType)
+    applyContour(project.room.contour, project.room.shapeType, {
+      shapePreset: project.room.shapePreset,
+    })
     loadSavedLayout(project.layout)
     setWastePercent(project.wastePercent)
     setUi({ roomConfigured: true })
@@ -93,6 +101,10 @@ export function useProjectStorage() {
       selectVariant(project.productSnapshot)
       setMessage('Товар из каталога не найден — используется снимок данных')
     }
+
+    // После selectVariant: он сбрасывает окантовку и покраску
+    if (project.edging) setEdging(project.edging)
+    loadColorOverrides(project.colorOverrides ?? {})
   }
 
   return {
