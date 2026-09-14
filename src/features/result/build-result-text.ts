@@ -1,5 +1,5 @@
 import type { CalculationResult, ProductVariant, RoomState } from '@/shared/types'
-import { formatArea, formatLength } from '@/shared/geometry/polygon'
+import { formatArea, formatLength, formatSize } from '@/shared/geometry/polygon'
 import { totalOrderCost } from '@/entities/calculation/edging'
 import { EDGING_COLOR_LABELS } from '@/shared/config/edging'
 import { formatColorBreakdownLine } from '@/entities/calculation/color-breakdown'
@@ -40,6 +40,14 @@ export function buildResultClipboardText(input: {
     lines.push(
       `Окантовка ${edging.thicknessMm} мм, ${EDGING_COLOR_LABELS[edging.colorGroup]}: прямых ${edging.straightTotal} шт (№1 — ${edging.straightCounts[1]}, №2 — ${edging.straightCounts[2]}), угловых ${edging.cornerTotal} шт (№1 — ${edging.cornerCounts[1]}, №2 — ${edging.cornerCounts[2]}, №3 — ${edging.cornerCounts[3]}, №4 — ${edging.cornerCounts[4]})`,
     )
+    if (calculation.coverage) {
+      lines.push(
+        `Поле плитки: ${formatSize(calculation.coverage.tileWidthMm, calculation.coverage.tileLengthMm, 'mm')}`,
+      )
+      lines.push(
+        `Итого с кантами: ${formatSize(calculation.coverage.outerWidthMm, calculation.coverage.outerLengthMm, 'mm')}`,
+      )
+    }
     lines.push(`Окантовка ориентировочно: ${edging.totalCost.toLocaleString('ru-RU')} ₽`)
     const orderTotal = totalOrderCost(calculation)
     if (orderTotal !== undefined) {

@@ -1,7 +1,7 @@
 import { useCalculatorStore } from '@/app/store/calculator-store'
 import { totalOrderCost } from '@/entities/calculation/edging'
 import { EDGING_COLOR_LABELS } from '@/shared/config/edging'
-import { formatArea, formatLength } from '@/shared/geometry/polygon'
+import { formatArea, formatLength, formatSize } from '@/shared/geometry/polygon'
 import { formatRub } from '@/shared/lib/pricing'
 import type { EdgingCornerType, EdgingResult, EdgingStraightType } from '@/shared/types'
 import styles from './CalculationSummary.module.scss'
@@ -99,6 +99,30 @@ export function CalculationSummary() {
             <dt>Площадь укладки</dt>
             <dd>{formatArea(calculation.workingAreaSqm)}</dd>
           </div>
+          {calculation.coverage && calculation.edging ? (
+            <>
+              <div>
+                <dt>Поле плитки</dt>
+                <dd>
+                  {formatSize(
+                    calculation.coverage.tileWidthMm,
+                    calculation.coverage.tileLengthMm,
+                    'mm',
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>Итого с кантами</dt>
+                <dd>
+                  {formatSize(
+                    calculation.coverage.outerWidthMm,
+                    calculation.coverage.outerLengthMm,
+                    'mm',
+                  )}
+                </dd>
+              </div>
+            </>
+          ) : null}
           {calculation.obstaclesAreaSqm > 0 ? (
             <div>
               <dt>Площадь препятствий</dt>

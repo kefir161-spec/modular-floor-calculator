@@ -7,7 +7,7 @@ import type {
   SavedProject,
 } from '@/shared/types'
 import { APP_CONFIG } from '@/shared/config'
-import { DEFAULT_EDGING, isEdgingThickness } from '@/shared/config/edging'
+import { DEFAULT_EDGING, isEdgingSizeRef, isEdgingThickness } from '@/shared/config/edging'
 import { inferShapePreset } from '@/shared/geometry/room-contour'
 
 function migrateLayout(layout: SavedLayoutSettings): SavedLayoutSettings {
@@ -42,6 +42,7 @@ function migrateEdging(edging: Partial<EdgingSettings> | undefined): EdgingSetti
     thicknessMm: isEdgingThickness(edging.thicknessMm)
       ? edging.thicknessMm
       : DEFAULT_EDGING.thicknessMm,
+    sizeRef: isEdgingSizeRef(edging.sizeRef) ? edging.sizeRef : DEFAULT_EDGING.sizeRef,
   }
 }
 

@@ -37,3 +37,92 @@
   font-variant-numeric: tabular-nums;
   color: var(--pf-color-text-secondary, var(--pf-color-text));
 }
+
+.sizeReadout {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--pf-color-border);
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-color-surface-muted, #f3f5f8);
+
+  div {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: baseline;
+  }
+
+  dt {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--pf-color-muted);
+  }
+
+  dd {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  div:last-child dd {
+    color: var(--pf-color-primary-text, var(--pf-color-text));
+  }
+}
+
+.fit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fitHint {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--pf-color-muted);
+}
+
+.fitOk {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--pf-color-success);
+}
+
+.fitRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.fitRow .fitBtn {
+  min-height: var(--pf-touch-min, 44px);
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 6px;
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.fitBtnLabel {
+  font-weight: 650;
+}
+
+.fitBtnMeta {
+  font-size: 0.68rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--pf-color-muted);
+  text-align: center;
+}
+
+.fitRow .fitBtn:hover:not(:disabled) .fitBtnMeta {
+  color: var(--pf-color-text);
+}

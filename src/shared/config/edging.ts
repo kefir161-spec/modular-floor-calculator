@@ -3,6 +3,7 @@ import type {
   EdgingColorGroup,
   EdgingCornerType,
   EdgingSettings,
+  EdgingSizeRef,
   EdgingStraightType,
   EdgingThickness,
 } from '@/shared/types'
@@ -26,10 +27,15 @@ export const EDGING_THICKNESSES: readonly EdgingThickness[] = [9, 16]
 export const DEFAULT_EDGING: EdgingSettings = {
   enabled: false,
   thicknessMm: 9,
+  sizeRef: 'outer',
 }
 
 export function isEdgingThickness(value: number | undefined): value is EdgingThickness {
   return value === 9 || value === 16
+}
+
+export function isEdgingSizeRef(value: unknown): value is EdgingSizeRef {
+  return value === 'outer' || value === 'inner'
 }
 
 /**

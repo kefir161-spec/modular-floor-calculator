@@ -66,6 +66,7 @@ describe('EdgingPanel', () => {
     expect(toggle).toHaveAttribute('aria-checked', 'true')
     expect(useCalculatorStore.getState().calculation?.edging?.straightTotal).toBe(36)
     expect(screen.getByText(/Прямых:/)).toHaveTextContent('Прямых: 36 · Угловых: 4 · цветной')
+    expect(screen.getByText(/Размер кратен плитке/)).toBeInTheDocument()
   })
 
   it('переключение толщины меняет расчёт и предупреждает о расхождении с плиткой', async () => {
@@ -80,5 +81,57 @@ describe('EdgingPanel', () => {
 
     expect(useCalculatorStore.getState().calculation?.edging?.thicknessMm).toBe(16)
     expect(screen.getByRole('alert')).toHaveTextContent('Плитка 9 мм')
+  })
+
+  it('для 1200×800 предлагает подгонку меньше и больше и применяет меньший размер', async () => {
+    const user = userEvent.setup()
+    act(() => {
+      useCalculatorStore.setState({ edging: { ...DEFAULT_EDGING } })
+      useCalculatorStore.getState().setRoom({
+        contour: createRectanglePolygon(1200, 800),
+        shapeType: 'rectangle',
+        unit: 'mm',
+      })
+      useCalculatorStore.getState().selectVariant(optimaDuos)
+    })
+    render(<EdgingPanel />)
+
+    await user.click(screen.getByRole('switch', { name: 'Канты по периметру' }))
+
+    const smaller = screen.getByRole('button', { name: 'Уменьшить до 4 на 2 плиток' })
+    const larger = screen.getByRole('button', { name: 'Увеличить до 5 на 3 плиток' })
+    expect(smaller).toHaveTextContent('4×2')
+    expect(larger).toHaveTextContent('5×3')
+
+    await user.click(smaller)
+
+    const room = useCalculatorStore.getState().room.contour
+    expect(room[1]?.x).toBe(1100)
+    expect(room[2]?.y).toBe(600)
+    expect(useCalculatorStore.getState().calculation?.cutModulesCount).toBe(0)
+    expect(screen.getByText(/Размер кратен плитке/)).toBeInTheDocument()
+  })
+
+  it('режим «поле + кант» показывает итоговый габарит с окантовкой', async () => {
+    const user = userEvent.setup()
+    act(() => {
+      useCalculatorStore.setState({ edging: { ...DEFAULT_EDGING } })
+      useCalculatorStore.getState().setRoom({
+        contour: createRectanglePolygon(1000, 1000),
+        shapeType: 'rectangle',
+        gapMm: 0,
+        unit: 'mm',
+      })
+      useCalculatorStore.getState().selectVariant(optimaDuos)
+    })
+    render(<EdgingPanel />)
+
+    await user.click(screen.getByRole('switch', { name: 'Канты по периметру' }))
+    expect(screen.getByText('Итого с кантами').parentElement).toHaveTextContent('1000 мм × 1000 мм')
+
+    await user.click(screen.getByRole('radio', { name: 'Поле + кант' }))
+    expect(useCalculatorStore.getState().edging.sizeRef).toBe('inner')
+    expect(screen.getByText('Итого с кантами').parentElement).toHaveTextContent('1090 мм × 1090 мм')
+    expect(screen.getByText('Поле плитки').parentElement).toHaveTextContent('1000 мм × 1000 мм')
   })
 })

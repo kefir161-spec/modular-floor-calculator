@@ -1,5 +1,6 @@
 import type {
   CardinalDirection,
+  CoverageDimensions,
   EdgingCornerType,
   EdgingLayout,
   EdgingPiece,
@@ -14,7 +15,7 @@ import {
   EDGING_STRAIGHT_TYPE_BY_SIDE,
   cornerKey,
 } from '@/shared/config/edging'
-import { edgeLength } from '@/shared/geometry/polygon'
+import { edgeLength, getBoundingBox } from '@/shared/geometry/polygon'
 
 const EPS = 1e-6
 /** Допуск на «прямой угол»: элементы 90° не встают в скошенный угол. */
@@ -25,12 +26,31 @@ const MIN_RUN_MM = 1
 const TRIM_TOLERANCE_MM = 0.5
 
 /**
- * Отступ зоны укладки от стен: технологический зазор плюс ширина канта.
- * Кант занимает место в помещении, поэтому поле плитки на него сжимается.
- * Единый источник правила для store и расчёта — их результаты должны совпадать.
+ * Отступ зоны укладки от заданного контура.
+ * `outer` — кант внутри заданного размера, поле плитки сжимается на 45 мм.
+ * `inner` — задан размер поля плитки, кант добавляется снаружи и в inset не входит.
  */
 export function workingInsetMm(gapMm: number, edging: EdgingSettings | undefined): number {
-  return gapMm + (edging?.enabled ? EDGING_GEOMETRY.widthMm : 0)
+  if (!edging?.enabled) return gapMm
+  if (edging.sizeRef === 'inner') return gapMm
+  return gapMm + EDGING_GEOMETRY.widthMm
+}
+
+/** Габарит поля плитки и покрытия с кантами (кант 45 мм с каждой стороны). */
+export function coverageDimensions(
+  workingPolygon: Polygon,
+  withEdging: boolean,
+): CoverageDimensions {
+  const box = getBoundingBox(workingPolygon)
+  const tileWidthMm = box.maxX - box.minX
+  const tileLengthMm = box.maxY - box.minY
+  const extra = withEdging ? EDGING_GEOMETRY.widthMm * 2 : 0
+  return {
+    tileWidthMm,
+    tileLengthMm,
+    outerWidthMm: tileWidthMm + extra,
+    outerLengthMm: tileLengthMm + extra,
+  }
 }
 
 function unitVector(from: Point, to: Point): Point {

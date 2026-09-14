@@ -178,7 +178,17 @@ export type CardinalDirection = 'north' | 'east' | 'south' | 'west'
 export type EdgingSettings = {
   enabled: boolean
   thicknessMm: EdgingThickness
+  /**
+   * Что означает введённый размер помещения при включённом канте.
+   * `outer` — размер уже с окантовкой (плитка внутри).
+   * `inner` — размер поля плитки, кант добавляется снаружи.
+   * По умолчанию `outer`.
+   */
+  sizeRef?: EdgingSizeRef
 }
+
+/** База заданного размера относительно окантовки. */
+export type EdgingSizeRef = 'outer' | 'inner'
 
 export type EdgingStraightPiece = {
   id: string
@@ -257,6 +267,7 @@ export type CalculationWarningCode =
   | 'obstacle_invalid'
   | 'edging_unsupported_corner'
   | 'edging_trimmed_pieces'
+  | 'edging_cut_locks'
   | 'edging_thickness_mismatch'
 
 export type CalculationWarning = {
@@ -307,6 +318,15 @@ export type ColorBreakdownRow = {
   totalCost?: number
 }
 
+export type CoverageDimensions = {
+  /** Габарит поля плитки (зона укладки), мм */
+  tileWidthMm: number
+  tileLengthMm: number
+  /** Габарит покрытия вместе с кантами, мм */
+  outerWidthMm: number
+  outerLengthMm: number
+}
+
 export type CalculationResult = {
   roomAreaSqm: number
   workingAreaSqm: number
@@ -332,6 +352,8 @@ export type CalculationResult = {
   totalWeightKg?: number
   /** Спецификация окантовки; отсутствует, когда кант выключен или недоступен */
   edging?: EdgingResult
+  /** Габарит поля плитки и покрытия с кантам */
+  coverage?: CoverageDimensions
   /** Раскладка по цветам, если часть модулей покрашена */
   colorBreakdown?: ColorBreakdownRow[]
   warnings: CalculationWarning[]

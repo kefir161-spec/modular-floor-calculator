@@ -16,11 +16,20 @@ import type {
   UiState,
 } from '@/shared/types'
 import { APP_CONFIG } from '@/shared/config'
-import { DEFAULT_EDGING, EDGING_FAMILY_SLUG, isEdgingThickness } from '@/shared/config/edging'
+import { DEFAULT_EDGING, EDGING_FAMILY_SLUG, isEdgingSizeRef, isEdgingThickness } from '@/shared/config/edging'
 import { extractFamilySlug } from '@/shared/api/catalog/normalize'
 import { workingInsetMm } from '@/shared/geometry/edging'
+import {
+  proposeEdgingFit,
+  type EdgingFitDirection,
+} from '@/shared/geometry/edging-fit'
 import { applyPaintOverride, cloneColorOverrides, colorOverridesEqual, findFamilyByVariant, paintPalette } from '@/shared/lib/paint'
-import { createRectanglePolygon, isPolygonValid, offsetPolygonInward } from '@/shared/geometry/polygon'
+import {
+  createRectanglePolygon,
+  isPolygonValid,
+  offsetPolygonInward,
+  rotateModuleDimensions,
+} from '@/shared/geometry/polygon'
 import { inferShapePreset } from '@/shared/geometry/room-contour'
 import { totalOpeningsLengthMm } from '@/shared/geometry/obstacles'
 import { calculate } from '@/entities/calculation/calculate'
@@ -114,6 +123,8 @@ type CalculatorState = {
   setDisplay: (display: Partial<DisplaySettings>) => void
   setWastePercent: (value: number) => void
   setEdging: (edging: Partial<EdgingSettings>) => void
+  /** Подогнать помещение, чтобы поле укладки Duos было без подрезки плитки. */
+  fitEdgingField: (direction: EdgingFitDirection) => boolean
   setPaintColorId: (id: string | null) => void
   paintModule: (key: string) => void
   commitPaintStroke: () => void
@@ -146,10 +157,8 @@ export function isEdgingSupported(variant: ProductVariant | null): boolean {
 }
 
 /**
- * Размеры помещения — от стены до стены.
- * Зона укладки = контур с учётом технологического зазора у стен (inward offset)
- * и ширины окантовки, если она включена.
- * @see https://plastfactor.com/installation-tips/
+ * Заданный контур — размер заказчика.
+ * Зона укладки = inward offset на зазор и, если кант внутри размера (`sizeRef: outer`), ещё 45 мм.
  */
 function computeWorkingContour(room: RoomState, edging: EdgingSettings) {
   return offsetPolygonInward(room.contour, workingInsetMm(room.gapMm, edging))
@@ -360,6 +369,7 @@ export const useCalculatorStore = create<CalculatorState>((set, get) => {
         thicknessMm: isEdgingThickness(variant?.thicknessMm)
           ? variant.thicknessMm
           : state.edging.thicknessMm,
+        sizeRef: isEdgingSizeRef(state.edging.sizeRef) ? state.edging.sizeRef : DEFAULT_EDGING.sizeRef,
       }
 
       set({
@@ -377,6 +387,29 @@ export const useCalculatorStore = create<CalculatorState>((set, get) => {
       const edging = { ...state.edging, ...partial }
       set({ edging, workingContour: computeWorkingContour(state.room, edging) })
       get().recalculate()
+    },
+    fitEdgingField: (direction) => {
+      const state = get()
+      const variant = state.selectedVariant
+      if (!state.edging.enabled || !isEdgingSupported(variant)) return false
+      if (!variant?.widthMm || !variant.lengthMm) return false
+      if (!state.workingContour.success) return false
+
+      const module = rotateModuleDimensions(variant.widthMm, variant.lengthMm, state.layout.rotation)
+      const proposal = proposeEdgingFit({
+        workingPolygon: state.workingContour.polygon,
+        insetMm: workingInsetMm(state.room.gapMm, state.edging),
+        moduleWidthMm: module.widthMm,
+        moduleLengthMm: module.lengthMm,
+        direction,
+      })
+      if (!proposal) return false
+
+      get().setLayout({ offsetX: 0, offsetY: 0, startPoint: 'corner' })
+      get().applyContour(proposal.roomPolygon, state.room.shapeType, {
+        shapePreset: state.room.shapePreset,
+      })
+      return true
     },
     setRoom: (partial) => {
       const prev = get().room

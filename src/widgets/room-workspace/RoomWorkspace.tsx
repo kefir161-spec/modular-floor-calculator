@@ -15,9 +15,12 @@ import { computeFitTransform, type ViewTransform } from '@/shared/lib/canvas-vie
 import {
   formatArea,
   formatLength,
+  formatSize,
   getBoundingBox,
   isPolygonValid,
+  offsetPolygonOutward,
 } from '@/shared/geometry/polygon'
+import { EDGING_GEOMETRY } from '@/shared/config/edging'
 import { differencePolygons, findCenterModuleId } from '@/shared/geometry/layout'
 import {
   createDefaultObstacle,
@@ -131,7 +134,19 @@ export function RoomWorkspace({
     moduleLengthMm,
   )
 
-  const bbox = getBoundingBox(room.contour)
+  const bbox = useMemo(() => {
+    const roomBox = getBoundingBox(room.contour)
+    if (!calculation?.edging || !workingContour.success) return roomBox
+    const outer = offsetPolygonOutward(workingContour.polygon, EDGING_GEOMETRY.widthMm)
+    if (!outer.success) return roomBox
+    const cover = getBoundingBox(outer.polygon)
+    return {
+      minX: Math.min(roomBox.minX, cover.minX),
+      minY: Math.min(roomBox.minY, cover.minY),
+      maxX: Math.max(roomBox.maxX, cover.maxX),
+      maxY: Math.max(roomBox.maxY, cover.maxY),
+    }
+  }, [room.contour, calculation?.edging, workingContour])
   const polygonEdit = room.shapeType === 'polygon'
   const editActive = canvasMode === 'edit'
   const contourValid = isPolygonValid(room.contour)
@@ -462,6 +477,26 @@ export function RoomWorkspace({
                   </>
                 ) : null}
               </div>
+              {calculation.coverage && calculation.edging ? (
+                <div className={styles.sizeChip}>
+                  <span>
+                    Поле{' '}
+                    {formatSize(
+                      calculation.coverage.tileWidthMm,
+                      calculation.coverage.tileLengthMm,
+                      room.unit,
+                    )}
+                  </span>
+                  <span>
+                    С кантами{' '}
+                    {formatSize(
+                      calculation.coverage.outerWidthMm,
+                      calculation.coverage.outerLengthMm,
+                      room.unit,
+                    )}
+                  </span>
+                </div>
+              ) : null}
             </>
           ) : (
             <span className={styles.canvasHint}>

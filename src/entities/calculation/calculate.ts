@@ -1,13 +1,14 @@
 import type { CalculationInput, CalculationResult, CalculationWarning } from '@/shared/types'
 import { APP_CONFIG } from '@/shared/config'
-import { polygonAreaSqm } from '@/shared/geometry/polygon'
+import { polygonAreaSqm, isPolygonValid, rotateModuleDimensions } from '@/shared/geometry/polygon'
 import { generateLayout, intersectionArea } from '@/shared/geometry/layout'
 import { estimateModulesToPurchase } from '@/shared/geometry/module-purchase'
 import { resolveModuleUnitPrices } from '@/shared/lib/pricing'
 import { obstacleToPolygon } from '@/shared/geometry/obstacles'
-import { isPolygonValid } from '@/shared/geometry/polygon'
 import { calculateEdging } from '@/entities/calculation/edging'
 import { buildColorBreakdown } from '@/entities/calculation/color-breakdown'
+import { coverageDimensions } from '@/shared/geometry/edging'
+import { isWorkingFieldModuleAligned } from '@/shared/geometry/edging-fit'
 
 export function calculate(input: CalculationInput): CalculationResult {
   const warnings: CalculationWarning[] = []
@@ -36,10 +37,13 @@ export function calculate(input: CalculationInput): CalculationResult {
     warnings.push({ code: 'zero_area', message: 'Площадь помещения равна нулю' })
   }
 
+  const edgingEnabled = Boolean(input.edging?.enabled)
   const layout = generateLayout({
     workingPolygon: input.workingPolygon,
     roomPolygon: input.roomPolygon,
-    gapMm: input.gapMm,
+    // Кант сидит на замках целой плитки, поэтому сетка совпадает с полем укладки, а не со стенами.
+    alignmentPolygon: edgingEnabled ? input.workingPolygon : undefined,
+    gapMm: edgingEnabled ? 0 : input.gapMm,
     obstacles: obstacles.map(obstacleToPolygon),
     moduleWidthMm: input.module.widthMm,
     moduleLengthMm: input.module.lengthMm,
@@ -129,6 +133,24 @@ export function calculate(input: CalculationInput): CalculationResult {
         message: `Прямых кантов под подрезку: ${edging.trimmedStraightCount} — стороны не кратны 250 мм`,
       })
     }
+    const moduleAxes = rotateModuleDimensions(
+      input.module.widthMm,
+      input.module.lengthMm,
+      input.layout.rotation,
+    )
+    if (
+      !isWorkingFieldModuleAligned(
+        input.workingPolygon,
+        moduleAxes.widthMm,
+        moduleAxes.lengthMm,
+      )
+    ) {
+      warnings.push({
+        code: 'edging_cut_locks',
+        message:
+          'По периметру плитка подрезается — кант крепится к замкам, а у подрезанной плитки они срезаны. Подгоните размер в меньшую или большую сторону.',
+      })
+    }
   }
 
   const colorBreakdown =
@@ -184,6 +206,7 @@ export function calculate(input: CalculationInput): CalculationResult {
     totalCostBySqm,
     totalWeightKg,
     edging,
+    coverage: coverageDimensions(input.workingPolygon, Boolean(edging)),
     colorBreakdown,
     warnings,
     layout,

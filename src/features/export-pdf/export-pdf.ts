@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf'
 import type { CalculationResult, ProductVariant, RoomState } from '@/shared/types'
-import { formatArea, formatLength } from '@/shared/geometry/polygon'
+import { formatArea, formatLength, formatSize } from '@/shared/geometry/polygon'
 import { totalOpeningsLengthMm } from '@/shared/geometry/obstacles'
 import { totalOrderCost } from '@/entities/calculation/edging'
 import { EDGING_COLOR_LABELS } from '@/shared/config/edging'
@@ -162,6 +162,14 @@ export async function exportToPdf(input: PdfExportInput): Promise<void> {
     }
     line(`Всего элементов: ${edging.straightTotal + edging.cornerTotal} шт`)
     line(`Периметр окантовки: ${formatLength(edging.perimeterMm, 'mm')}`)
+    if (calculation.coverage) {
+      line(
+        `Поле плитки: ${formatSize(calculation.coverage.tileWidthMm, calculation.coverage.tileLengthMm, 'mm')}`,
+      )
+      line(
+        `Итого с кантами: ${formatSize(calculation.coverage.outerWidthMm, calculation.coverage.outerLengthMm, 'mm')}`,
+      )
+    }
     line(`Стоимость окантовки: ${edging.totalCost.toLocaleString('ru-RU')} ₽`)
     const orderTotal = totalOrderCost(calculation)
     if (orderTotal !== undefined) {

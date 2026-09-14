@@ -9,6 +9,7 @@ export {
   EDGING_GEOMETRY,
   EDGING_PRICES,
   EDGING_THICKNESSES,
+  isEdgingSizeRef,
   isEdgingThickness,
   resolveEdgingColorGroup,
 } from './edging'
@@ -29,7 +30,7 @@ function resolveCatalogUrl(): string {
 export const APP_CONFIG = {
   defaultGapMm: 5,
   defaultWastePercent: 5,
-  schemaVersion: 4,
+  schemaVersion: 5,
   productUrlParam: import.meta.env.VITE_PRODUCT_URL_PARAM ?? 'offerId',
   catalogMode: (import.meta.env.VITE_CATALOG_MODE ?? 'local') as 'local' | 'remote',
   catalogUrl: resolveCatalogUrl(),

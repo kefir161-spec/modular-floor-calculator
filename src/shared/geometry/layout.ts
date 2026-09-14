@@ -223,6 +223,11 @@ export type GenerateLayoutInput = {
   workingPolygon: Polygon
   /** Контур помещения от стены до стены — для выравнивания сетки модулей */
   roomPolygon?: Polygon
+  /**
+   * Явное выравнивание сетки. Для окантовки Duos — зона укладки:
+   * кант занимает место у стен, плитка начинается после него.
+   */
+  alignmentPolygon?: Polygon
   /** Технологический зазор: мелкая обрезка у стены не считается подрезкой модуля */
   gapMm?: number
   /** Препятствия внутри зоны укладки */
@@ -255,7 +260,7 @@ function clipModuleByObstacles(
 
 export function generateLayout(input: GenerateLayoutInput) {
   const { workingPolygon, rotation, offsetX, offsetY, startPoint, gapMm = 0 } = input
-  const alignmentPolygon = input.roomPolygon ?? workingPolygon
+  const alignmentPolygon = input.alignmentPolygon ?? input.roomPolygon ?? workingPolygon
   const obstaclePolys = input.obstacles ?? []
   let { moduleWidthMm, moduleLengthMm } = input
 

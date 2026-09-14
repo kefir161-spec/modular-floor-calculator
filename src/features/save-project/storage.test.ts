@@ -7,10 +7,10 @@ import {
 import type { SavedProject } from '@/shared/types'
 
 describe('project migration regression', () => {
-  it('загружает снапшот schemaVersion 1 без потери данных и поднимает до v4', () => {
+  it('загружает снапшот schemaVersion 1 без потери данных и поднимает до v5', () => {
     const migrated = migrateProject(structuredClone(SAVED_PROJECT_V1_FIXTURE))
 
-    expect(migrated.schemaVersion).toBe(4)
+    expect(migrated.schemaVersion).toBe(5)
     expect(migrated.id).toBe('proj-fixture-v1')
     expect(migrated.name).toBe('Регрессия v1')
     expect(migrated.productSourceId).toBe('5200')
@@ -28,17 +28,17 @@ describe('project migration regression', () => {
     expect(migrated.wastePercent).toBe(5)
     expect(migrated.productSnapshot.lengthMm).toBe(375)
     // v3: окантовки в старых проектах не было
-    expect(migrated.edging).toEqual({ enabled: false, thicknessMm: 9 })
+    expect(migrated.edging).toEqual({ enabled: false, thicknessMm: 9, sizeRef: 'outer' })
     expect(migrated.colorOverrides).toEqual({})
   })
 
-  it('мигрирует schemaVersion 0: добавляет unit, отбрасывает showGrid, v2–v4 поля', () => {
+  it('мигрирует schemaVersion 0: добавляет unit, отбрасывает showGrid, v2–v5 поля', () => {
     const migrated = migrateProject(
       structuredClone(SAVED_PROJECT_V0_WITH_GRID) as unknown as SavedProject,
     )
 
-    expect(migrated.schemaVersion).toBe(4)
-    expect(migrated.edging).toEqual({ enabled: false, thicknessMm: 9 })
+    expect(migrated.schemaVersion).toBe(5)
+    expect(migrated.edging).toEqual({ enabled: false, thicknessMm: 9, sizeRef: 'outer' })
     expect(migrated.colorOverrides).toEqual({})
     expect(migrated.room.unit).toBe('mm')
     expect(migrated.room.obstacles).toEqual([])
@@ -60,9 +60,27 @@ describe('project migration regression', () => {
       edging: { enabled: true, thicknessMm: 16 },
     }
 
-    expect(migrateProject(project).edging).toEqual({ enabled: true, thicknessMm: 16 })
+    expect(migrateProject(project).edging).toEqual({
+      enabled: true,
+      thicknessMm: 16,
+      sizeRef: 'outer',
+    })
     expect(migrateProject(project).colorOverrides).toEqual({})
-    expect(migrateProject(project).schemaVersion).toBe(4)
+    expect(migrateProject(project).schemaVersion).toBe(5)
+  })
+
+  it('сохраняет sizeRef inner из проекта v5', () => {
+    const project: SavedProject = {
+      ...structuredClone(SAVED_PROJECT_V1_FIXTURE),
+      schemaVersion: 5,
+      edging: { enabled: true, thicknessMm: 9, sizeRef: 'inner' },
+    }
+
+    expect(migrateProject(project).edging).toEqual({
+      enabled: true,
+      thicknessMm: 9,
+      sizeRef: 'inner',
+    })
   })
 
   it('сохраняет покраску из проекта v4', () => {
@@ -95,7 +113,7 @@ describe('project migration regression', () => {
     const migrated = migrateProject(parsed)
 
     expect(migrated).toMatchObject({
-      schemaVersion: 4,
+      schemaVersion: 5,
       productSourceId: '5200',
       wastePercent: 5,
       room: { gapMm: 5, unit: 'm', shapeType: 'rectangle', obstacles: [], openings: [] },

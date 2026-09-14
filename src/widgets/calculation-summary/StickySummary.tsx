@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useCalculatorStore } from '@/app/store/calculator-store'
-import { formatArea } from '@/shared/geometry/polygon'
+import { formatArea, formatSize } from '@/shared/geometry/polygon'
 import { formatRub } from '@/shared/lib/pricing'
 import { Button } from '@/shared/ui/Button/Button'
 import { Drawer } from '@/shared/ui/Drawer/Drawer'
@@ -69,6 +69,16 @@ export function StickySummary({ onExportPng, onExportPdf, onPrint }: Props) {
         ) : null}
         <div className={styles.meta}>
           <span>{formatArea(calculation.workingAreaSqm)}</span>
+          {calculation.edging && calculation.coverage ? (
+            <span>
+              с кантами{' '}
+              {formatSize(
+                calculation.coverage.outerWidthMm,
+                calculation.coverage.outerLengthMm,
+                'mm',
+              )}
+            </span>
+          ) : null}
           {calculation.totalCost !== undefined ? (
             <span>{formatRub(calculation.totalCost)}</span>
           ) : null}

@@ -115,6 +115,35 @@ describe('calculate с окантовкой', () => {
 
     expect(result.edging!.trimmedStraightCount).toBeGreaterThan(0)
     expect(result.warnings.map((w) => w.code)).toContain('edging_trimmed_pieces')
+    expect(result.warnings.map((w) => w.code)).toContain('edging_cut_locks')
+  })
+
+  it('поле кратно плитке — подрезок модулей нет, сетка совпадает с кантом', () => {
+    const result = runWithEdging({ enabled: true, thicknessMm: 9 })
+
+    expect(result.cutModulesCount).toBe(0)
+    expect(result.fullModulesCount).toBe(96)
+    expect(result.warnings.map((w) => w.code)).not.toContain('edging_cut_locks')
+  })
+
+  it('1200×800 с кантом даёт обрезки по периметру', () => {
+    const gapMm = 5
+    const room = createRectanglePolygon(1200, 800)
+    const working = offsetPolygonInward(room, workingInsetMm(gapMm, { enabled: true, thicknessMm: 9 }))
+    if (!working.success) throw new Error(working.reason)
+
+    const result = calculate({
+      roomPolygon: room,
+      workingPolygon: working.polygon,
+      gapMm,
+      module: MODULE,
+      layout: { rotation: 0, offsetX: 0, offsetY: 0, startPoint: 'corner' },
+      wastePercent: 5,
+      edging: { enabled: true, thicknessMm: 9 },
+    })
+
+    expect(result.cutModulesCount).toBeGreaterThan(0)
+    expect(result.warnings.map((w) => w.code)).toContain('edging_cut_locks')
   })
 
   it('totalOrderCost складывает покрытие и окантовку', () => {

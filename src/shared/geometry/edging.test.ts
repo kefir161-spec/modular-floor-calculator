@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateEdging } from '@/shared/geometry/edging'
+import { generateEdging, workingInsetMm, coverageDimensions } from '@/shared/geometry/edging'
 import { createLShapePolygon, createRectanglePolygon, polygonArea } from '@/shared/geometry/polygon'
 import { intersectionArea } from '@/shared/geometry/layout'
 import { EDGING_GEOMETRY } from '@/shared/config/edging'
@@ -121,5 +121,38 @@ describe('generateEdging — сложная форма помещения', () =
   it('вырожденный контур не даёт элементов', () => {
     expect(generateEdging([{ x: 0, y: 0 }, { x: 100, y: 0 }]).pieces).toHaveLength(0)
     expect(generateEdging([]).straightTotal).toBe(0)
+  })
+})
+
+describe('workingInsetMm и coverageDimensions', () => {
+  it('outer: кант внутри заданного размера', () => {
+    expect(workingInsetMm(5, { enabled: true, thicknessMm: 9, sizeRef: 'outer' })).toBe(50)
+    expect(workingInsetMm(0, { enabled: true, thicknessMm: 9, sizeRef: 'outer' })).toBe(45)
+  })
+
+  it('inner: кант снаружи, inset только зазор', () => {
+    expect(workingInsetMm(5, { enabled: true, thicknessMm: 9, sizeRef: 'inner' })).toBe(5)
+    expect(workingInsetMm(0, { enabled: true, thicknessMm: 9, sizeRef: 'inner' })).toBe(0)
+  })
+
+  it('выключенный кант — только зазор', () => {
+    expect(workingInsetMm(5, { enabled: false, thicknessMm: 9 })).toBe(5)
+    expect(workingInsetMm(5, undefined)).toBe(5)
+  })
+
+  it('итого с кантами = поле + 90 мм', () => {
+    const field = createRectanglePolygon(1000, 1000)
+    expect(coverageDimensions(field, false)).toEqual({
+      tileWidthMm: 1000,
+      tileLengthMm: 1000,
+      outerWidthMm: 1000,
+      outerLengthMm: 1000,
+    })
+    expect(coverageDimensions(field, true)).toEqual({
+      tileWidthMm: 1000,
+      tileLengthMm: 1000,
+      outerWidthMm: 1090,
+      outerLengthMm: 1090,
+    })
   })
 })

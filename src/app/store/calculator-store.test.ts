@@ -257,6 +257,14 @@ describe('окантовка в store', () => {
       cornerCounts: { 1: 1, 2: 1, 3: 1, 4: 1 },
       trimmedStraightCount: 0,
     })
+    expect(withEdging.cutModulesCount).toBe(0)
+    expect(withEdging.coverage).toMatchObject({
+      tileWidthMm: 3000,
+      tileLengthMm: 2000,
+      outerWidthMm: 3090,
+      outerLengthMm: 2090,
+    })
+    expect(withEdging.warnings.map((w) => w.code)).not.toContain('edging_cut_locks')
   })
 
   it('выключение канта возвращает исходную зону укладки', () => {
@@ -306,6 +314,60 @@ describe('окантовка в store', () => {
     expect(colored.straightPrice).toBe(74)
     expect(colored.cornerPrice).toBe(148)
     expect(colored.totalCost).toBeGreaterThan(black.totalCost)
+  })
+
+  it('подгонка 1200×800 уменьшает и увеличивает поле до целых плиток', () => {
+    useCalculatorStore.getState().setRoom({
+      contour: createRectanglePolygon(1200, 800),
+      shapeType: 'rectangle',
+    })
+    useCalculatorStore.getState().selectVariant(optimaDuosVariant)
+    useCalculatorStore.getState().setEdging({ enabled: true })
+
+    const before = useCalculatorStore.getState().calculation!
+    expect(before.cutModulesCount).toBeGreaterThan(0)
+    expect(before.warnings.map((w) => w.code)).toContain('edging_cut_locks')
+
+    expect(useCalculatorStore.getState().fitEdgingField('down')).toBe(true)
+    const smaller = useCalculatorStore.getState()
+    expect(smaller.room.contour[1]?.x).toBe(1100)
+    expect(smaller.room.contour[2]?.y).toBe(600)
+    expect(smaller.calculation?.cutModulesCount).toBe(0)
+    expect(smaller.calculation?.fullModulesCount).toBe(8)
+    expect(smaller.calculation?.warnings.map((w) => w.code)).not.toContain('edging_cut_locks')
+
+    useCalculatorStore.getState().setRoom({
+      contour: createRectanglePolygon(1200, 800),
+      shapeType: 'rectangle',
+    })
+    useCalculatorStore.getState().setEdging({ enabled: true })
+    expect(useCalculatorStore.getState().fitEdgingField('up')).toBe(true)
+    const larger = useCalculatorStore.getState()
+    expect(larger.room.contour[1]?.x).toBe(1350)
+    expect(larger.room.contour[2]?.y).toBe(850)
+    expect(larger.calculation?.cutModulesCount).toBe(0)
+    expect(larger.calculation?.fullModulesCount).toBe(15)
+  })
+
+  it('sizeRef inner: заданный размер — поле плитки, итого с кантами больше', () => {
+    useCalculatorStore.getState().setRoom({
+      contour: createRectanglePolygon(1000, 1000),
+      shapeType: 'rectangle',
+      gapMm: 0,
+    })
+    useCalculatorStore.getState().selectVariant(optimaDuosVariant)
+    useCalculatorStore.getState().setEdging({ enabled: true, sizeRef: 'outer' })
+
+    const included = useCalculatorStore.getState().calculation!.coverage!
+    expect(included.tileWidthMm).toBe(910)
+    expect(included.outerWidthMm).toBe(1000)
+
+    useCalculatorStore.getState().setEdging({ sizeRef: 'inner' })
+    const added = useCalculatorStore.getState().calculation!.coverage!
+    expect(added.tileWidthMm).toBe(1000)
+    expect(added.outerWidthMm).toBe(1090)
+    expect(added.tileLengthMm).toBe(1000)
+    expect(added.outerLengthMm).toBe(1090)
   })
 })
 

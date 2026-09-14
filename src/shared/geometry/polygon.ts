@@ -332,6 +332,10 @@ export function formatLength(mm: number, unit: 'mm' | 'm'): string {
   return `${Math.round(mm)} мм`
 }
 
+export function formatSize(widthMm: number, lengthMm: number, unit: 'mm' | 'm'): string {
+  return `${formatLength(widthMm, unit)} × ${formatLength(lengthMm, unit)}`
+}
+
 export function formatArea(sqm: number): string {
   return `${sqm.toFixed(2)} м²`
 }

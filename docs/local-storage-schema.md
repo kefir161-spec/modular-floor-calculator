@@ -9,7 +9,7 @@
 
 ```ts
 {
-  schemaVersion: 3,
+  schemaVersion: 5,
   id: string,
   name: string,
   createdAt: ISO8601,
@@ -19,7 +19,7 @@
   room: RoomState,
   layout: LayoutSettings,
   wastePercent: number,
-  edging?: EdgingSettings   // v3+
+  edging?: EdgingSettings   // v3+; v5+ sizeRef
 }
 ```
 
@@ -30,6 +30,8 @@
 | 1 | базовый снимок проекта |
 | 2 | `room.obstacles`, `room.openings` |
 | 3 | `edging` — окантовка Optima Duos |
+| 4 | `colorOverrides` — покраска модулей |
+| 5 | `edging.sizeRef` — заданный размер с кантами или поле + кант |
 
 ## Миграции
 
